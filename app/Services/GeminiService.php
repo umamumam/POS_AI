@@ -55,64 +55,85 @@ class GeminiService
         $prompt .= $productListStr;
 
         try {
-            // We call Gemini 2.5 Flash as it is the fastest, cheapest, and supports multimodal inputs + structured outputs.
-            // If the user prefers, we can also use gemini-2.0-flash as a fallback.
-            $response = Http::withHeaders([
-                'Content-Type' => 'application/json',
-            ])->post("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={$this->apiKey}", [
-                'contents' => [
-                    [
-                        'parts' => [
-                            ['text' => $prompt],
+            $models = [
+                'gemini-2.5-flash',
+                'gemini-2.0-flash',
+                'gemini-1.5-flash'
+            ];
+
+            $response = null;
+            $lastErrorMessage = '';
+
+            foreach ($models as $model) {
+                try {
+                    $response = Http::withHeaders([
+                        'Content-Type' => 'application/json',
+                    ])->post("https://generativelanguage.googleapis.com/v1beta/models/{$model}:generateContent?key={$this->apiKey}", [
+                        'contents' => [
                             [
-                                'inlineData' => [
-                                    'mimeType' => $mimeType,
-                                    'data' => $rawBase64
-                                ]
-                            ]
-                        ]
-                    ]
-                ],
-                'generationConfig' => [
-                    'responseMimeType' => 'application/json',
-                    'responseSchema' => [
-                        'type' => 'OBJECT',
-                        'properties' => [
-                            'matches' => [
-                                'type' => 'ARRAY',
-                                'description' => 'Daftar kecocokan produk yang berhasil diidentifikasi di foto.',
-                                'items' => [
-                                    'type' => 'OBJECT',
-                                    'properties' => [
-                                        'matched_id' => [
-                                            'type' => 'INTEGER',
-                                            'description' => 'ID produk yang cocok dari daftar produk.'
-                                        ],
-                                        'qty' => [
-                                            'type' => 'INTEGER',
-                                            'description' => 'Jumlah barang jenis ini yang terdeteksi di foto. Minimal 1.'
-                                        ],
-                                        'confidence' => [
-                                            'type' => 'NUMBER',
-                                            'description' => 'Tingkat keyakinan/probabilitas kecocokan antara 0.0 hingga 1.0.'
-                                        ],
-                                        'reason' => [
-                                            'type' => 'STRING',
-                                            'description' => 'Alasan singkat mengapa produk ini dipilih beserta deteksi kuantitasnya.'
+                                'parts' => [
+                                    ['text' => $prompt],
+                                    [
+                                        'inlineData' => [
+                                            'mimeType' => $mimeType,
+                                            'data' => $rawBase64
                                         ]
-                                    ],
-                                    'required' => ['matched_id', 'qty', 'confidence', 'reason']
+                                    ]
                                 ]
                             ]
                         ],
-                        'required' => ['matches']
-                    ]
-                ]
-            ]);
+                        'generationConfig' => [
+                            'responseMimeType' => 'application/json',
+                            'responseSchema' => [
+                                'type' => 'OBJECT',
+                                'properties' => [
+                                    'matches' => [
+                                        'type' => 'ARRAY',
+                                        'description' => 'Daftar kecocokan produk yang berhasil diidentifikasi di foto.',
+                                        'items' => [
+                                            'type' => 'OBJECT',
+                                            'properties' => [
+                                                'matched_id' => [
+                                                    'type' => 'INTEGER',
+                                                    'description' => 'ID produk yang cocok dari daftar produk.'
+                                                ],
+                                                'qty' => [
+                                                    'type' => 'INTEGER',
+                                                    'description' => 'Jumlah barang jenis ini yang terdeteksi di foto. Minimal 1.'
+                                                ],
+                                                'confidence' => [
+                                                    'type' => 'NUMBER',
+                                                    'description' => 'Tingkat keyakinan/probabilitas kecocokan antara 0.0 hingga 1.0.'
+                                                ],
+                                                'reason' => [
+                                                    'type' => 'STRING',
+                                                    'description' => 'Alasan singkat mengapa produk ini dipilih beserta deteksi kuantitasnya.'
+                                                ]
+                                            ],
+                                            'required' => ['matched_id', 'qty', 'confidence', 'reason']
+                                        ]
+                                    ]
+                                ],
+                                'required' => ['matches']
+                            ]
+                        ]
+                    ]);
 
-            if ($response->failed()) {
-                Log::error('Gemini API Request Failed: ' . $response->body());
-                throw new \Exception('Gagal menghubungi Gemini API: ' . ($response->json('error.message') ?? 'Unknown error'));
+                    if ($response->successful()) {
+                        break;
+                    } else {
+                        $errData = $response->json();
+                        $lastErrorMessage = $errData['error']['message'] ?? $response->body();
+                        Log::warning("Gemini model {$model} failed: " . $lastErrorMessage);
+                    }
+                } catch (\Exception $e) {
+                    $lastErrorMessage = $e->getMessage();
+                    Log::warning("Gemini request for model {$model} failed: " . $lastErrorMessage);
+                }
+            }
+
+            if (!$response || !$response->successful()) {
+                throw new \Exception('Gagal menghubungi Gemini API setelah mencoba beberapa model (2.5, 2.0, 1.5). Error terakhir: ' . $lastErrorMessage);
             }
 
             $result = $response->json();
