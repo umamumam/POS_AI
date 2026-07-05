@@ -52,7 +52,8 @@ class GeminiService
         $prompt .= "2. **Varian Rasa & Warna Kemasan**: Perhatikan varian rasa (Soto, Kari, Ayam, Goreng, dll.) dan warna grafis kemasan. Warna dan tulisan yang berbeda menunjukkan rasa atau variasi yang berbeda. Cocokkan dengan nama produk di database yang mengandung kata kunci rasa tersebut.\n";
         $prompt .= "3. **Hitung Jumlah (Quantity) Secara Spesifik**: Hitung dengan tepat berapa unit yang terlihat untuk setiap varian produk secara individual di dalam foto.\n";
         $prompt .= "4. **Pencocokan ID yang Tepat**: Pilih ID produk dari daftar di bawah yang paling spesifik. Jika di foto ada 1 Pop Mie Besar dan 1 Pop Mie Kecil, maka Anda harus mengembalikan DUA entri di array matches (satu untuk ID Pop Mie Besar dengan qty 1, dan satu untuk ID Pop Mie Kecil dengan qty 1). Jangan digabungkan menjadi qty 2 di salah satu ID!\n";
-        $prompt .= "5. Jika tidak ada produk dari daftar yang cocok sama sekali, kembalikan daftar matches kosong.\n\n";
+        $prompt .= "5. **Produk Rentengan (Sachet Renteng)**: Perhatikan jika produk berupa rentengan (sachet panjang yang tersambung, biasanya kopi sachet, sampo sachet, atau bumbu penyedap). Satu deret renteng panjang yang saling menyatu dihitung sebagai **1 unit (1 renteng)**. Jangan menghitung jumlah sachet kecilnya sebagai kuantitas terpisah! Kecuali jika terdapat lebih dari satu renteng panjang terpisah yang dijajarkan atau ditumpuk, barulah dihitung sesuai jumlah rentengnya (misal: 2 renteng terpisah = qty 2).\n";
+        $prompt .= "6. Jika tidak ada produk dari daftar yang cocok sama sekali, kembalikan daftar matches kosong.\n\n";
         $prompt .= $productListStr;
 
         try {
