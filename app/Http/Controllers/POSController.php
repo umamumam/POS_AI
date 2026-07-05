@@ -171,9 +171,23 @@ class POSController extends Controller
         $kembalian = $bayar - $total;
 
         // Generate Transaction Code (e.g. 20260705/01)
+        // Kita gunakan date('Ymd') sesuai dengan zona waktu Asia/Jakarta yang sudah diatur
         $todayStr = date('Ymd');
-        $transaksiCountToday = Transaksi::whereDate('created_at', today())->count();
-        $sequence = str_pad($transaksiCountToday + 1, 2, '0', STR_PAD_LEFT);
+        
+        // Cari kode transaksi hari ini dengan urutan nomor tertinggi
+        $lastTrx = Transaksi::where('kode', 'like', "{$todayStr}/%")
+            ->orderBy('kode', 'desc')
+            ->first();
+
+        if ($lastTrx) {
+            $parts = explode('/', $lastTrx->kode);
+            $lastSequence = isset($parts[1]) ? intval($parts[1]) : 0;
+            $nextSequence = $lastSequence + 1;
+        } else {
+            $nextSequence = 1;
+        }
+
+        $sequence = str_pad($nextSequence, 2, '0', STR_PAD_LEFT);
         $kodeTransaksi = "{$todayStr}/{$sequence}";
 
         DB::beginTransaction();
