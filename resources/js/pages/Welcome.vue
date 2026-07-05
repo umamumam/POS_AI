@@ -604,7 +604,7 @@ onBeforeUnmount(() => {
         <!-- MOBILE SCREEN CONTAINER -->
         <!-- On Desktop: Centers as a nice app card | On Mobile: Fills 100% of viewport -->
         <div
-            class="relative flex h-screen w-full max-w-md flex-col overflow-hidden border-border bg-background md:h-[90vh] md:rounded-2xl md:border md:shadow-lg"
+            class="relative flex h-[100dvh] w-full max-w-md flex-col overflow-hidden border-border bg-background md:h-[90vh] md:rounded-2xl md:border md:shadow-lg"
         >
             <!-- 1. Header -->
             <header
@@ -665,9 +665,9 @@ onBeforeUnmount(() => {
                     </div>
 
                     <!-- WebRTC Camera Stream Frame -->
-                    <div class="relative flex flex-col px-3 pb-3 shrink-0">
+                    <div class="relative flex flex-col px-3 pb-2 shrink-0">
                         <div
-                            class="relative flex h-[240px] w-full items-center justify-center overflow-hidden rounded-2xl border border-border bg-black shadow-inner shrink-0"
+                            class="relative flex h-[270px] w-full items-center justify-center overflow-hidden rounded-2xl border border-border bg-black shadow-inner shrink-0"
                         >
                             <video
                                 ref="videoRef"
@@ -684,7 +684,7 @@ onBeforeUnmount(() => {
                                 class="pointer-events-none absolute inset-0 z-10 flex items-center justify-center"
                             >
                                 <div
-                                    class="relative h-40 w-40 rounded-2xl border-[3px] border-green-500/80"
+                                    class="relative h-44 w-44 rounded-2xl border-[3px] border-green-500/80"
                                 >
                                     <div
                                         class="absolute -top-1 -left-1 h-6 w-6 rounded-tl-md border-t-4 border-l-4 border-green-500"
@@ -1527,9 +1527,9 @@ onBeforeUnmount(() => {
     .bg-neutral-100 {
         background-color: transparent !important;
     }
-    .w-full.max-w-md.h-screen {
+    .w-full.max-w-md.h-\[100dvh\] {
         max-width: 100% !important;
-        height: 100vh !important;
+        height: 100dvh !important;
         box-shadow: none !important;
         border: none !important;
         border-radius: 0 !important;
