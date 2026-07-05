@@ -67,6 +67,7 @@ interface Receipt {
 const props = defineProps<{
     categories: Category[];
     initialProducts: Product[];
+    recentTransactions: Receipt[];
     apiKeyConfigured: boolean;
 }>();
 
@@ -89,7 +90,7 @@ const showCartDrawer = ref(false);
 const showReceiptModal = ref(false);
 const activeReceipt = ref<Receipt | null>(null);
 const errorMessage = ref('');
-const recentTransactions = ref<Receipt[]>([]);
+const recentTransactions = ref<Receipt[]>(props.recentTransactions || []);
 
 // Scanning Match Result Overlay
 const scanMatch = ref<{
@@ -599,7 +600,7 @@ onBeforeUnmount(() => {
 
     <!-- CLEAN CENTERED VIEW WRAPPER -->
     <div
-        class="flex min-h-screen items-center justify-center bg-neutral-100 antialiased dark:bg-neutral-950"
+        class="flex min-h-screen items-stretch justify-center bg-neutral-100 antialiased md:items-center dark:bg-neutral-950"
     >
         <!-- MOBILE SCREEN CONTAINER -->
         <!-- On Desktop: Centers as a nice app card | On Mobile: Fills 100% of viewport -->
@@ -1103,7 +1104,7 @@ onBeforeUnmount(() => {
             <!-- 3. Bottom Cart Drawer Pill (Pops up from bottom above nav) -->
             <div
                 v-if="!isCartEmpty && activeTab === 'home'"
-                class="absolute bottom-[76px] left-3 right-3 z-20 flex animate-in justify-center slide-in-from-bottom-2"
+                class="absolute bottom-[88px] left-4 right-4 z-20 flex animate-in justify-center slide-in-from-bottom-2"
             >
                 <button
                     @click="showCartDrawer = true"
@@ -1119,7 +1120,7 @@ onBeforeUnmount(() => {
 
             <!-- 4. Bottom Tab Navigation Bar -->
             <nav
-                class="absolute bottom-3 left-3 right-3 z-25 grid h-14 grid-cols-4 items-center justify-center rounded-2xl border border-border/85 bg-card/90 backdrop-blur-md shadow-lg"
+                class="absolute bottom-5 left-4 right-4 z-25 grid h-14 grid-cols-4 items-center justify-center rounded-2xl border border-border/85 bg-card/90 backdrop-blur-md shadow-lg"
             >
                 <button
                     @click="activeTab = 'home'"

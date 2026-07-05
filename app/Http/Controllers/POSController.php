@@ -33,9 +33,16 @@ class POSController extends Controller
             ->limit(30)
             ->get();
 
+        // Ambil 10 transaksi terbaru, urutkan dari ID terbesar (descending)
+        $recentTransactions = Transaksi::with(['details.produk'])
+            ->orderBy('id', 'desc')
+            ->limit(10)
+            ->get();
+
         return Inertia::render('Welcome', [
             'categories' => $categories,
             'initialProducts' => $initialProducts,
+            'recentTransactions' => $recentTransactions,
             'apiKeyConfigured' => !empty(env('GEMINI_API_KEY')),
         ]);
     }
