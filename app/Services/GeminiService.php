@@ -60,7 +60,8 @@ class GeminiService
             $models = [
                 'gemini-2.5-flash',
                 'gemini-2.0-flash',
-                'gemini-1.5-flash'
+                'gemini-1.5-flash',
+                'gemini-1.5-pro'
             ];
 
             $response = null;
@@ -68,9 +69,7 @@ class GeminiService
 
             foreach ($models as $model) {
                 try {
-                    $response = Http::withHeaders([
-                        'Content-Type' => 'application/json',
-                    ])->post("https://generativelanguage.googleapis.com/v1beta/models/{$model}:generateContent?key={$this->apiKey}", [
+                    $payload = [
                         'contents' => [
                             [
                                 'parts' => [
@@ -119,7 +118,11 @@ class GeminiService
                                 'required' => ['matches']
                             ]
                         ]
-                    ]);
+                    ];
+
+                    $response = Http::withHeaders([
+                        'Content-Type' => 'application/json',
+                    ])->post("https://generativelanguage.googleapis.com/v1beta/models/{$model}:generateContent?key={$this->apiKey}", $payload);
 
                     if ($response->successful()) {
                         break;
@@ -127,6 +130,28 @@ class GeminiService
                         $errData = $response->json();
                         $lastErrorMessage = $errData['error']['message'] ?? $response->body();
                         Log::warning("Gemini model {$model} failed: " . $lastErrorMessage);
+
+                        // Jika gagal karena skema atau generateContent tidak didukung, coba sekali lagi tanpa responseSchema
+                        if (
+                            str_contains(strtolower($lastErrorMessage), 'schema') || 
+                            str_contains(strtolower($lastErrorMessage), 'not supported') || 
+                            str_contains(strtolower($lastErrorMessage), 'not found')
+                        ) {
+                            Log::info("Retrying Gemini model {$model} without responseSchema...");
+                            unset($payload['generationConfig']['responseSchema']);
+                            
+                            $response = Http::withHeaders([
+                                'Content-Type' => 'application/json',
+                            ])->post("https://generativelanguage.googleapis.com/v1beta/models/{$model}:generateContent?key={$this->apiKey}", $payload);
+
+                            if ($response->successful()) {
+                                break;
+                            } else {
+                                $errData = $response->json();
+                                $lastErrorMessage = $errData['error']['message'] ?? $response->body();
+                                Log::warning("Gemini model {$model} retry failed: " . $lastErrorMessage);
+                            }
+                        }
                     }
                 } catch (\Exception $e) {
                     $lastErrorMessage = $e->getMessage();
@@ -134,6 +159,7 @@ class GeminiService
                 }
             }
 
+            $deepseekError = null;
             if (!$response || !$response->successful()) {
                 // Gemini failed. Let's try DeepSeek API!
                 $deepseekApiKey = env('DEEPSEEK_API_KEY') ?? 'sk-44e4fa1b746e4b26ab9473dbab855873';
@@ -186,14 +212,20 @@ class GeminiService
                                 }
                             }
                         } else {
-                            Log::error('DeepSeek API failed: ' . $dsResponse->body());
+                            $deepseekError = "Status " . $dsResponse->status() . ": " . $dsResponse->body();
+                            Log::error('DeepSeek API failed: ' . $deepseekError);
                         }
                     } catch (\Exception $dsEx) {
-                        Log::error('DeepSeek API request exception: ' . $dsEx->getMessage());
+                        $deepseekError = $dsEx->getMessage();
+                        Log::error('DeepSeek API request exception: ' . $deepseekError);
                     }
                 }
                 
-                throw new \Exception('Gagal menghubungi Gemini API setelah mencoba beberapa model (2.5, 2.0, 1.5). Error terakhir: ' . $lastErrorMessage);
+                $errMsg = 'Gagal menghubungi Gemini API setelah mencoba beberapa model (2.5, 2.0, 1.5, 1.5-pro). Error Gemini: ' . $lastErrorMessage;
+                if ($deepseekError) {
+                    $errMsg .= ' | Error DeepSeek Fallback: ' . $deepseekError;
+                }
+                throw new \Exception($errMsg);
             }
 
             $result = $response->json();
