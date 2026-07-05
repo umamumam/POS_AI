@@ -307,18 +307,13 @@ const captureAndAnalyze = async () => {
             const data = await response.json();
 
             if (response.ok && data.success) {
-                const matchedProduct = data.product as Product;
-
                 scanMatch.value = {
                     success: true,
-                    product: matchedProduct,
-                    confidence: data.confidence,
-                    reason: data.reason,
+                    matches: data.matches
                 };
             } else {
                 scanMatch.value = {
                     success: false,
-                    product: null,
                     reason: data.message || 'Produk tidak dikenali.',
                 };
             }
@@ -362,17 +357,13 @@ const handleImageUpload = async (event: Event) => {
             const data = await response.json();
 
             if (response.ok && data.success) {
-                const matchedProduct = data.product as Product;
                 scanMatch.value = {
                     success: true,
-                    product: matchedProduct,
-                    confidence: data.confidence,
-                    reason: data.reason,
+                    matches: data.matches
                 };
             } else {
                 scanMatch.value = {
                     success: false,
-                    product: null,
                     reason: data.message || 'Produk tidak dikenali.',
                 };
             }
@@ -407,6 +398,41 @@ const addToCart = (product: Product) => {
             alert(`Produk ${product.nama} habis.`);
         }
     }
+    scanMatch.value = null;
+};
+
+// Add all scanned matches to Cart
+const addMatchesToCart = () => {
+    if (!scanMatch.value || !scanMatch.value.matches) return;
+
+    scanMatch.value.matches.forEach((match) => {
+        const product = match.product;
+        const qtyToAdd = match.qty;
+
+        const existingIndex = cart.value.findIndex(
+            (item) => item.product.id === product.id,
+        );
+
+        if (existingIndex > -1) {
+            const newQty = cart.value[existingIndex].qty + qtyToAdd;
+            if (newQty <= product.stok) {
+                cart.value[existingIndex].qty = newQty;
+            } else {
+                cart.value[existingIndex].qty = product.stok;
+                alert(`Stok untuk ${product.nama} terbatas. Hanya ditambahkan sampai batas stok (${product.stok}).`);
+            }
+        } else {
+            if (product.stok > 0) {
+                const finalQty = Math.min(qtyToAdd, product.stok);
+                cart.value.push({ product, qty: finalQty });
+                if (qtyToAdd > product.stok) {
+                    alert(`Stok untuk ${product.nama} terbatas. Hanya ditambahkan ${product.stok}.`);
+                }
+            } else {
+                alert(`Produk ${product.nama} habis.`);
+            }
+        }
+    });
     scanMatch.value = null;
 };
 
@@ -782,7 +808,7 @@ onBeforeUnmount(() => {
                     >
                         <div
                             :class="[
-                                'relative flex items-center gap-3 rounded-xl border p-3 shadow-xs',
+                                'relative flex flex-col gap-3 rounded-xl border p-3.5 shadow-sm',
                                 scanMatch.success
                                     ? 'border-green-500/20 bg-green-500/10 text-green-700 dark:text-green-400'
                                     : 'border-red-500/20 bg-red-500/10 text-red-700',
@@ -792,54 +818,53 @@ onBeforeUnmount(() => {
                                 @click="scanMatch = null"
                                 class="absolute top-2 right-2 text-muted-foreground hover:text-foreground"
                             >
-                                <X class="h-3.5 w-3.5" />
+                                <X class="h-4 w-4" />
                             </button>
 
-                            <div
-                                v-if="scanMatch.success && scanMatch.product"
-                                class="flex w-full items-center justify-between pt-1 pr-6"
-                            >
-                                <div>
-                                    <span
-                                        class="rounded bg-green-500/20 px-1.5 py-0.5 text-[9px] font-bold text-green-700"
-                                        >Terdeteksi ({{
-                                            Math.round(
-                                                (scanMatch.confidence || 0) *
-                                                    100,
-                                            )
-                                        }}%)</span
+                            <div v-if="scanMatch.success && scanMatch.matches && scanMatch.matches.length > 0" class="flex flex-col gap-2.5 w-full pr-6 pt-1">
+                                <span class="rounded bg-green-500/20 px-1.5 py-0.5 text-[9px] font-bold text-green-700 self-start">
+                                    {{ scanMatch.matches.length }} Jenis Produk Terdeteksi
+                                </span>
+                                
+                                <div class="flex flex-col gap-2 max-h-[180px] overflow-y-auto pr-1">
+                                    <div 
+                                        v-for="(match, idx) in scanMatch.matches" 
+                                        :key="idx"
+                                        class="flex items-start justify-between gap-2 border-b border-green-500/10 pb-1.5 last:border-0 last:pb-0"
                                     >
-                                    <h4
-                                        class="mt-1 line-clamp-1 text-xs font-bold text-foreground"
-                                    >
-                                        1x {{ scanMatch.product.nama }}
-                                    </h4>
-                                    <span
-                                        class="mt-0.5 block text-[10px] text-muted-foreground"
-                                        >{{
-                                            formatRupiah(
-                                                scanMatch.product.harga_jual,
-                                            )
-                                        }}</span
-                                    >
+                                        <div class="flex-1">
+                                            <h4 class="text-xs font-bold text-foreground">
+                                                {{ match.qty }}x {{ match.product.nama }}
+                                            </h4>
+                                            <p class="text-[10px] text-muted-foreground line-clamp-2 mt-0.5 leading-relaxed">
+                                                {{ match.reason }}
+                                            </p>
+                                        </div>
+                                        <div class="text-right shrink-0">
+                                            <span class="text-xs font-bold text-foreground block">
+                                                {{ formatRupiah(match.product.harga_jual * match.qty) }}
+                                            </span>
+                                            <span class="text-[9px] text-muted-foreground mt-0.5 block">
+                                                @{{ formatRupiah(match.product.harga_jual) }}
+                                            </span>
+                                        </div>
+                                    </div>
                                 </div>
+
                                 <button
-                                    @click="addToCart(scanMatch.product)"
-                                    class="flex items-center gap-1 rounded-lg bg-primary px-3 py-1.5 text-xs font-bold text-primary-foreground shadow-xs transition-opacity hover:opacity-90"
+                                    @click="addMatchesToCart"
+                                    class="w-full mt-1.5 flex items-center justify-center gap-1.5 rounded-lg bg-primary py-2 px-3 text-xs font-bold text-primary-foreground shadow-sm transition-opacity hover:opacity-90 active:scale-98"
                                 >
-                                    Tambah <ArrowRight class="h-3 w-3" />
+                                    Masukkan Semua ke Keranjang
                                 </button>
                             </div>
 
                             <div v-else class="flex-1 pt-1 pr-6">
-                                <span
-                                    class="rounded bg-red-500/20 px-1.5 py-0.5 text-[9px] font-bold text-red-700"
-                                    >Gagal</span
-                                >
-                                <p
-                                    class="mt-1 text-xs leading-relaxed text-foreground"
-                                >
-                                    {{ scanMatch.reason }}
+                                <span class="rounded bg-red-500/20 px-1.5 py-0.5 text-[9px] font-bold text-red-700">
+                                    Gagal
+                                </span>
+                                <p class="mt-1 text-xs leading-relaxed text-foreground">
+                                    {{ scanMatch.reason || 'Tidak ada produk yang berhasil dikenali.' }}
                                 </p>
                             </div>
                         </div>

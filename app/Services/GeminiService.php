@@ -46,9 +46,12 @@ class GeminiService
         }
 
         $prompt = "Tugas Anda adalah menganalisis foto produk yang dikirimkan oleh kasir dan mencocokkannya dengan daftar produk di bawah ini.\n";
-        $prompt .= "Cari produk dari daftar yang paling mirip atau persis sama dengan produk di foto tersebut.\n";
-        $prompt .= "Jika ada beberapa kecocokan, pilih satu yang memiliki tingkat kecocokan tertinggi.\n";
-        $prompt .= "Jika tidak ada produk yang cocok sama sekali dari daftar, kembalikan null untuk matched_id.\n\n";
+        $prompt .= "Temukan semua produk yang ada di dalam foto tersebut (bisa berupa beberapa unit dari produk yang sama, atau beberapa produk berbeda).\n";
+        $prompt .= "Untuk setiap produk yang berhasil Anda kenali dan temukan kecocokannya di dalam daftar:\n";
+        $prompt .= "1. Temukan ID produk yang paling cocok dari daftar.\n";
+        $prompt .= "2. Hitung jumlah unit (quantity/qty) produk tersebut yang tampak jelas di foto.\n";
+        $prompt .= "3. Tentukan tingkat keyakinan (confidence) dan berikan penjelasan singkat (reason) mengapa Anda mencocokkannya.\n\n";
+        $prompt .= "Jika tidak ada produk dari daftar yang cocok sama sekali di foto, kembalikan daftar matches kosong.\n\n";
         $prompt .= $productListStr;
 
         try {
@@ -75,28 +78,34 @@ class GeminiService
                     'responseSchema' => [
                         'type' => 'OBJECT',
                         'properties' => [
-                            'matched_id' => [
-                                'type' => 'INTEGER',
-                                'description' => 'ID produk yang cocok dari daftar produk. Jika tidak ada kecocokan, kembalikan null.'
-                            ],
-                            'matched_kode' => [
-                                'type' => 'STRING',
-                                'description' => 'Kode (barcode) produk yang cocok. Jika tidak ada kecocokan, kembalikan string kosong atau null.'
-                            ],
-                            'matched_name' => [
-                                'type' => 'STRING',
-                                'description' => 'Nama produk yang cocok.'
-                            ],
-                            'confidence' => [
-                                'type' => 'NUMBER',
-                                'description' => 'Tingkat keyakinan/probabilitas kecocokan antara 0.0 hingga 1.0.'
-                            ],
-                            'reason' => [
-                                'type' => 'STRING',
-                                'description' => 'Alasan singkat dalam bahasa Indonesia mengapa produk ini dipilih.'
+                            'matches' => [
+                                'type' => 'ARRAY',
+                                'description' => 'Daftar kecocokan produk yang berhasil diidentifikasi di foto.',
+                                'items' => [
+                                    'type' => 'OBJECT',
+                                    'properties' => [
+                                        'matched_id' => [
+                                            'type' => 'INTEGER',
+                                            'description' => 'ID produk yang cocok dari daftar produk.'
+                                        ],
+                                        'qty' => [
+                                            'type' => 'INTEGER',
+                                            'description' => 'Jumlah barang jenis ini yang terdeteksi di foto. Minimal 1.'
+                                        ],
+                                        'confidence' => [
+                                            'type' => 'NUMBER',
+                                            'description' => 'Tingkat keyakinan/probabilitas kecocokan antara 0.0 hingga 1.0.'
+                                        ],
+                                        'reason' => [
+                                            'type' => 'STRING',
+                                            'description' => 'Alasan singkat mengapa produk ini dipilih beserta deteksi kuantitasnya.'
+                                        ]
+                                    ],
+                                    'required' => ['matched_id', 'qty', 'confidence', 'reason']
+                                ]
                             ]
                         ],
-                        'required' => ['matched_id', 'matched_kode', 'matched_name', 'confidence', 'reason']
+                        'required' => ['matches']
                     ]
                 ]
             ]);

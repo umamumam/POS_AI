@@ -90,7 +90,7 @@ class POSController extends Controller
             // Call Gemini Service
             $matchResult = $this->geminiService->identifyProductFromImage($request->image, $products);
 
-            if (!$matchResult || empty($matchResult['matched_id'])) {
+            if (!$matchResult || empty($matchResult['matches'])) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Produk tidak dapat dikenali. Silakan arahkan kamera lebih dekat atau cari secara manual.',
@@ -98,22 +98,33 @@ class POSController extends Controller
                 ]);
             }
 
-            // Retrieve full details of the matched product
-            $product = Produk::with('kategori')->find($matchResult['matched_id']);
+            // Retrieve full details of each matched product
+            $resolvedMatches = [];
+            foreach ($matchResult['matches'] as $match) {
+                if (empty($match['matched_id'])) continue;
+                
+                $product = Produk::with('kategori')->find($match['matched_id']);
+                if ($product) {
+                    $resolvedMatches[] = [
+                        'product' => $product,
+                        'qty' => $match['qty'] ?? 1,
+                        'confidence' => $match['confidence'] ?? 1.0,
+                        'reason' => $match['reason'] ?? 'Ditemukan kecocokan.',
+                    ];
+                }
+            }
 
-            if (!$product) {
+            if (count($resolvedMatches) === 0) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Produk terdeteksi tapi ID tidak ditemukan di database.',
+                    'message' => 'Produk terdeteksi tapi tidak ada ID yang cocok ditemukan di database.',
                     'details' => $matchResult
                 ]);
             }
 
             return response()->json([
                 'success' => true,
-                'product' => $product,
-                'confidence' => $matchResult['confidence'] ?? 1.0,
-                'reason' => $matchResult['reason'] ?? 'Ditemukan kecocokan.',
+                'matches' => $resolvedMatches,
             ]);
 
         } catch (\Exception $e) {
