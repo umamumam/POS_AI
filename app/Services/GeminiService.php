@@ -45,13 +45,14 @@ class GeminiService
             $productListStr .= "{$p['id']} | {$p['kode']} | {$p['nama']}\n";
         }
 
-        $prompt = "Tugas Anda adalah menganalisis foto produk yang dikirimkan oleh kasir dan mencocokkannya dengan daftar produk di bawah ini.\n";
-        $prompt .= "Temukan semua produk yang ada di dalam foto tersebut (bisa berupa beberapa unit dari produk yang sama, atau beberapa produk berbeda).\n";
-        $prompt .= "Untuk setiap produk yang berhasil Anda kenali dan temukan kecocokannya di dalam daftar:\n";
-        $prompt .= "1. Temukan ID produk yang paling cocok dari daftar.\n";
-        $prompt .= "2. Hitung jumlah unit (quantity/qty) produk tersebut yang tampak jelas di foto.\n";
-        $prompt .= "3. Tentukan tingkat keyakinan (confidence) dan berikan penjelasan singkat (reason) mengapa Anda mencocokkannya.\n\n";
-        $prompt .= "Jika tidak ada produk dari daftar yang cocok sama sekali di foto, kembalikan daftar matches kosong.\n\n";
+        $prompt = "TUGAS UTAMA:\n";
+        $prompt .= "Anda adalah AI kasir POS yang sangat teliti. Tugas Anda adalah menganalisis foto produk yang dikirimkan oleh kasir dan mencocokkannya secara AKURAT dengan daftar produk di database di bawah ini.\n\n";
+        $prompt .= "PETUNJUK ANALISIS SANGAT KETAT:\n";
+        $prompt .= "1. **Perbedaan Ukuran (Besar vs Kecil, Cup vs Dus, Berat Gram/ml)**: Perhatikan ukuran fisik dan berat bersih yang tertera di kemasan. Produk dengan merek sama tetapi ukuran berbeda (misal: Pop Mie Cup Kecil vs Pop Mie Cup Besar/Jumbo, Mie Sedaap Cup vs Dus) adalah produk yang BERBEDA dengan ID yang berbeda di database. Jangan satukan mereka di bawah ID yang sama!\n";
+        $prompt .= "2. **Varian Rasa & Warna Kemasan**: Perhatikan varian rasa (Soto, Kari, Ayam, Goreng, dll.) dan warna grafis kemasan. Warna dan tulisan yang berbeda menunjukkan rasa atau variasi yang berbeda. Cocokkan dengan nama produk di database yang mengandung kata kunci rasa tersebut.\n";
+        $prompt .= "3. **Hitung Jumlah (Quantity) Secara Spesifik**: Hitung dengan tepat berapa unit yang terlihat untuk setiap varian produk secara individual di dalam foto.\n";
+        $prompt .= "4. **Pencocokan ID yang Tepat**: Pilih ID produk dari daftar di bawah yang paling spesifik. Jika di foto ada 1 Pop Mie Besar dan 1 Pop Mie Kecil, maka Anda harus mengembalikan DUA entri di array matches (satu untuk ID Pop Mie Besar dengan qty 1, dan satu untuk ID Pop Mie Kecil dengan qty 1). Jangan digabungkan menjadi qty 2 di salah satu ID!\n";
+        $prompt .= "5. Jika tidak ada produk dari daftar yang cocok sama sekali, kembalikan daftar matches kosong.\n\n";
         $prompt .= $productListStr;
 
         try {

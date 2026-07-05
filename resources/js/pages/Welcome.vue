@@ -390,15 +390,21 @@ const addToCart = (product: Product) => {
             cart.value[existingIndex].qty += 1;
         } else {
             alert(`Stok untuk ${product.nama} sudah mencapai batas maksimum.`);
+            return;
         }
     } else {
         if (product.stok > 0) {
             cart.value.push({ product, qty: 1 });
         } else {
             alert(`Produk ${product.nama} habis.`);
+            return;
         }
     }
     scanMatch.value = null;
+    
+    // Auto redirect to Home and open the Cart Drawer immediately
+    activeTab.value = 'home';
+    showCartDrawer.value = true;
 };
 
 // Add all scanned matches to Cart
@@ -1097,7 +1103,7 @@ onBeforeUnmount(() => {
             <!-- 3. Bottom Cart Drawer Pill (Pops up from bottom above nav) -->
             <div
                 v-if="!isCartEmpty && activeTab === 'home'"
-                class="absolute right-0 bottom-16 left-0 z-20 flex animate-in justify-center p-3 slide-in-from-bottom-2"
+                class="absolute bottom-[76px] left-3 right-3 z-20 flex animate-in justify-center slide-in-from-bottom-2"
             >
                 <button
                     @click="showCartDrawer = true"
@@ -1113,7 +1119,7 @@ onBeforeUnmount(() => {
 
             <!-- 4. Bottom Tab Navigation Bar -->
             <nav
-                class="absolute right-0 bottom-0 left-0 z-25 grid h-14 grid-cols-4 items-center justify-center border-t border-border bg-card"
+                class="absolute bottom-3 left-3 right-3 z-25 grid h-14 grid-cols-4 items-center justify-center rounded-2xl border border-border/85 bg-card/90 backdrop-blur-md shadow-lg"
             >
                 <button
                     @click="activeTab = 'home'"
