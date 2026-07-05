@@ -414,6 +414,7 @@ const addToCart = (product: Product) => {
     }
     scanMatch.value = null;
     capturedImage.value = null;
+    searchQuery.value = ''; // Reset input pencarian produk
     
     // Auto redirect to Home and open the Cart Drawer immediately
     activeTab.value = 'home';
