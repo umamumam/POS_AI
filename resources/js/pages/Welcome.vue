@@ -98,7 +98,14 @@ const scanMatch = ref<{
     product: Product | null;
     confidence?: number;
     reason?: string;
+    matches?: Array<{
+        product: Product;
+        qty: number;
+        confidence: number;
+        reason: string;
+    }>;
 } | null>(null);
+const capturedImage = ref<string | null>(null);
 
 // Camera State
 const videoRef = ref<HTMLVideoElement | null>(null);
@@ -262,6 +269,8 @@ watch(activeTab, (newTab) => {
         setTimeout(() => initCamera(), 100);
     } else {
         stopCamera();
+        scanMatch.value = null;
+        capturedImage.value = null;
     }
 
     if (newTab === 'transactions') {
@@ -292,6 +301,7 @@ const captureAndAnalyze = async () => {
             canvas.height = video.videoHeight;
             context.drawImage(video, 0, 0, canvas.width, canvas.height);
             const base64Image = canvas.toDataURL('image/jpeg', 0.8);
+            capturedImage.value = base64Image;
 
             const token = getCsrfToken();
             const response = await fetch('/api/pos/analyze', {
@@ -342,6 +352,7 @@ const handleImageUpload = async (event: Event) => {
     reader.onload = async (e) => {
         try {
             const base64Image = e.target?.result as string;
+            capturedImage.value = base64Image;
 
             const token = getCsrfToken();
             const response = await fetch('/api/pos/analyze', {
@@ -402,6 +413,7 @@ const addToCart = (product: Product) => {
         }
     }
     scanMatch.value = null;
+    capturedImage.value = null;
     
     // Auto redirect to Home and open the Cart Drawer immediately
     activeTab.value = 'home';
@@ -441,6 +453,7 @@ const addMatchesToCart = () => {
         }
     });
     scanMatch.value = null;
+    capturedImage.value = null;
 };
 
 // Checkout
@@ -655,12 +668,12 @@ onBeforeUnmount(() => {
                     <div class="p-3">
                         <div class="relative" @click="activeTab = 'products'">
                             <Search
-                                class="absolute top-2.5 left-3 h-4.5 w-4.5 text-muted-foreground"
+                                class="absolute top-3 left-3 h-5 w-5 text-muted-foreground"
                             />
                             <Input
                                 type="text"
                                 placeholder="Cari Nama Produk..."
-                                class="pointer-events-none h-10 cursor-pointer rounded-full border-border bg-card pl-9 text-xs"
+                                class="pointer-events-none h-11 cursor-pointer rounded-xl border-border bg-card pl-10 text-sm"
                             />
                         </div>
                     </div>
@@ -670,7 +683,16 @@ onBeforeUnmount(() => {
                         <div
                             class="relative flex h-[270px] w-full items-center justify-center overflow-hidden rounded-2xl border border-border bg-black shadow-inner shrink-0"
                         >
+                            <!-- Tampilkan Preview Hasil Foto jika ada -->
+                            <img
+                                v-if="capturedImage"
+                                :src="capturedImage"
+                                class="h-full w-full object-cover rounded-2xl"
+                                alt="Hasil Foto Produk"
+                            />
+                            <!-- Tampilkan Stream Video Aktif jika tidak ada foto terambil -->
                             <video
+                                v-else
                                 ref="videoRef"
                                 autoplay
                                 playsinline
@@ -682,6 +704,7 @@ onBeforeUnmount(() => {
 
                             <!-- Glowing Scanner target corners -->
                             <div
+                                v-if="!capturedImage"
                                 class="pointer-events-none absolute inset-0 z-10 flex items-center justify-center"
                             >
                                 <div
@@ -703,6 +726,7 @@ onBeforeUnmount(() => {
                             </div>
 
                             <div
+                                v-if="!capturedImage"
                                 class="pointer-events-none absolute z-10 h-8 w-8 animate-ping rounded-full border border-green-400 bg-green-400/20"
                             ></div>
 
@@ -822,7 +846,7 @@ onBeforeUnmount(() => {
                             ]"
                         >
                             <button
-                                @click="scanMatch = null"
+                                @click="scanMatch = null; capturedImage = null"
                                 class="absolute top-2 right-2 text-muted-foreground hover:text-foreground"
                             >
                                 <X class="h-4 w-4" />
@@ -885,13 +909,13 @@ onBeforeUnmount(() => {
                 >
                     <div class="relative">
                         <Search
-                            class="absolute top-2.5 left-3 h-4 w-4 text-muted-foreground"
+                            class="absolute top-3.5 left-3 h-4.5 w-4.5 text-muted-foreground"
                         />
                         <Input
                             type="text"
                             placeholder="Cari barcode / nama..."
                             v-model="searchQuery"
-                            class="h-9 pl-9 text-xs"
+                            class="h-11 pl-10 text-sm rounded-xl"
                         />
                     </div>
 
@@ -1303,22 +1327,24 @@ onBeforeUnmount(() => {
                                 />
                             </div>
 
-                            <div class="mt-1 grid grid-cols-4 gap-1">
+                            <div class="mt-1 flex flex-col gap-1.5">
                                 <button
                                     @click="setQuickPay(cartTotal)"
-                                    class="rounded border bg-background py-1 text-[9px] font-bold hover:border-primary"
+                                    class="w-full h-10 flex items-center justify-center rounded-lg border border-primary/35 bg-primary/5 hover:bg-primary/10 text-xs font-bold text-primary active:scale-[0.98] transition-all"
                                 >
-                                    Uang Pas
+                                    Uang Pas ({{ formatRupiah(cartTotal) }})
                                 </button>
-                                <button
-                                    v-for="amt in [20000, 50000, 100000]"
-                                    :key="amt"
-                                    v-show="amt > cartTotal"
-                                    @click="setQuickPay(amt)"
-                                    class="rounded border bg-background py-1 text-[9px] font-bold hover:border-primary"
-                                >
-                                    {{ formatRupiah(amt) }}
-                                </button>
+                                <div class="grid grid-cols-3 gap-1.5">
+                                    <button
+                                        v-for="amt in [20000, 50000, 100000]"
+                                        :key="amt"
+                                        v-show="amt > cartTotal"
+                                        @click="setQuickPay(amt)"
+                                        class="h-8 rounded-lg border bg-background text-[10px] font-bold hover:border-primary active:scale-[0.98] transition-all"
+                                    >
+                                        {{ formatRupiah(amt) }}
+                                    </button>
+                                </div>
                             </div>
                         </div>
 
