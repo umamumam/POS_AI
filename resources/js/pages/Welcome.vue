@@ -665,9 +665,9 @@ onBeforeUnmount(() => {
                     </div>
 
                     <!-- WebRTC Camera Stream Frame -->
-                    <div class="relative flex flex-1 flex-col px-3 pb-3">
+                    <div class="relative flex flex-col px-3 pb-3 shrink-0">
                         <div
-                            class="relative flex min-h-[280px] flex-1 items-center justify-center overflow-hidden rounded-2xl border border-border bg-black shadow-inner"
+                            class="relative flex h-[240px] w-full items-center justify-center overflow-hidden rounded-2xl border border-border bg-black shadow-inner shrink-0"
                         >
                             <video
                                 ref="videoRef"
@@ -681,10 +681,10 @@ onBeforeUnmount(() => {
 
                             <!-- Glowing Scanner target corners -->
                             <div
-                                class="pointer-events-none absolute inset-0 z-10 flex items-center justify-center p-6"
+                                class="pointer-events-none absolute inset-0 z-10 flex items-center justify-center"
                             >
                                 <div
-                                    class="relative h-48 w-48 rounded-2xl border-[3px] border-green-500/80"
+                                    class="relative h-40 w-40 rounded-2xl border-[3px] border-green-500/80"
                                 >
                                     <div
                                         class="absolute -top-1 -left-1 h-6 w-6 rounded-tl-md border-t-4 border-l-4 border-green-500"
