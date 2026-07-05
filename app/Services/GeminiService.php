@@ -133,6 +133,64 @@ class GeminiService
             }
 
             if (!$response || !$response->successful()) {
+                // Gemini failed. Let's try DeepSeek API!
+                $deepseekApiKey = env('DEEPSEEK_API_KEY') ?? 'sk-44e4fa1b746e4b26ab9473dbab855873';
+                if (!empty($deepseekApiKey)) {
+                    Log::info('Gemini failed. Attempting fallback to DeepSeek API...');
+                    
+                    $deepseekPrompt = $prompt . "\n\nCRITICAL: Anda HARUS membalas HANYA dengan format JSON yang valid, tanpa markdown wrapper (seperti ```json), tanpa penjelasan teks tambahan di luar JSON. Format JSON harus berupa objek dengan key 'matches' berisi array, di mana setiap item memiliki key: 'matched_id' (integer), 'qty' (integer), 'confidence' (float), dan 'reason' (string).";
+                    
+                    try {
+                        $dsResponse = Http::withHeaders([
+                            'Authorization' => "Bearer {$deepseekApiKey}",
+                            'Content-Type' => 'application/json',
+                        ])->post('https://api.deepseek.com/v1/chat/completions', [
+                            'model' => 'deepseek-chat',
+                            'messages' => [
+                                [
+                                    'role' => 'user',
+                                    'content' => [
+                                        [
+                                            'type' => 'text',
+                                            'text' => $deepseekPrompt
+                                        ],
+                                        [
+                                            'type' => 'image_url',
+                                            'image_url' => [
+                                                'url' => "data:{$mimeType};base64,{$rawBase64}"
+                                            ]
+                                        ]
+                                    ]
+                                ]
+                            ],
+                            'response_format' => [
+                                'type' => 'json_object'
+                            ]
+                        ]);
+
+                        if ($dsResponse->successful()) {
+                            $dsResult = $dsResponse->json();
+                            $textResponse = $dsResult['choices'][0]['message']['content'] ?? null;
+                            if (!empty($textResponse)) {
+                                // Clean markdown formatting if any
+                                $textResponse = preg_replace('/^```json\s*/i', '', $textResponse);
+                                $textResponse = preg_replace('/```$/', '', $textResponse);
+                                $textResponse = trim($textResponse);
+
+                                $parsedData = json_decode($textResponse, true);
+                                if (json_last_error() === JSON_ERROR_NONE && isset($parsedData['matches'])) {
+                                    Log::info('Successfully processed with DeepSeek API.');
+                                    return $parsedData;
+                                }
+                            }
+                        } else {
+                            Log::error('DeepSeek API failed: ' . $dsResponse->body());
+                        }
+                    } catch (\Exception $dsEx) {
+                        Log::error('DeepSeek API request exception: ' . $dsEx->getMessage());
+                    }
+                }
+                
                 throw new \Exception('Gagal menghubungi Gemini API setelah mencoba beberapa model (2.5, 2.0, 1.5). Error terakhir: ' . $lastErrorMessage);
             }
 
