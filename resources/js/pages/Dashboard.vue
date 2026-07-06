@@ -446,7 +446,7 @@ const printReceipt = () => {
     <Head title="Dashboard" />
 
     <div class="flex h-full flex-1 flex-col gap-4 overflow-x-auto rounded-xl p-4">
-        <!-- 3 Column Top Grid: POS Shortcut + Daily Income + Monthly Income -->
+        <!-- 3 Column Top Grid: POS Shortcut + Income Summary + Top Products -->
         <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             <!-- 1. Kartu Pintasan POS Kasir -->
             <div
@@ -456,7 +456,7 @@ const printReceipt = () => {
                     <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-500 text-white shadow-md shadow-orange-500/20">
                         <ShoppingCart class="h-5 w-5" />
                     </div>
-                    <span class="rounded-full bg-orange-500/10 px-2.5 py-0.5 text-[10px] font-bold text-orange-600">POS Aktif</span>
+                    <span class="rounded-full bg-orange-500/10 px-2.5 py-0.5 text-[10px] font-bold text-orange-600">POS Kasir</span>
                 </div>
                 <div class="mt-4">
                     <h4 class="text-sm font-bold text-foreground">Aplikasi Kasir (POS)</h4>
@@ -474,145 +474,69 @@ const printReceipt = () => {
                 </div>
             </div>
 
-            <!-- 2. Pendapatan Harian Card -->
+            <!-- 2. Ringkasan Pendapatan Card -->
             <div class="relative overflow-hidden rounded-xl border border-sidebar-border bg-card p-5 flex flex-col justify-between">
                 <div class="flex items-center justify-between">
-                    <h3 class="text-xs font-bold text-muted-foreground uppercase tracking-wider">Pendapatan Harian</h3>
+                    <h3 class="text-xs font-bold text-muted-foreground uppercase tracking-wider">Ringkasan Pendapatan</h3>
                     <span class="text-orange-500 bg-orange-500/10 p-1.5 rounded-lg">
                         <Sparkles class="h-4 w-4" />
                     </span>
                 </div>
-                <div class="mt-4 flex items-center justify-between">
-                    <div>
-                        <h4 class="text-xl font-extrabold text-foreground">{{ formatRupiah(incomeToday) }}</h4>
-                        <div class="mt-1 flex items-center gap-1 text-[10px] font-bold">
-                            <span :class="dailyGrowth >= 0 ? 'text-green-600' : 'text-red-600'">
+                <div class="mt-4 flex flex-col gap-3">
+                    <!-- Pendapatan Harian -->
+                    <div class="flex items-center justify-between border-b pb-2">
+                        <div>
+                            <span class="text-[9px] font-bold text-muted-foreground uppercase">Hari Ini</span>
+                            <h4 class="text-sm font-extrabold text-foreground">{{ formatRupiah(incomeToday) }}</h4>
+                        </div>
+                        <div class="text-right">
+                            <span :class="['text-[10px] font-extrabold block', dailyGrowth >= 0 ? 'text-green-600' : 'text-red-600']">
                                 {{ dailyGrowth >= 0 ? '+' : '' }}{{ dailyGrowth }}%
                             </span>
-                            <span class="text-muted-foreground">dibanding kemarin</span>
+                            <span class="text-[8px] text-muted-foreground">vs kemarin</span>
                         </div>
                     </div>
-                    
-                    <!-- Circular Progress Ring SVG -->
-                    <div class="relative flex h-14 w-14 items-center justify-center shrink-0">
-                        <svg class="h-full w-full -rotate-90">
-                            <circle cx="28" cy="28" r="22" stroke="currentColor" class="text-muted/15" stroke-width="4" fill="transparent" />
-                            <circle cx="28" cy="28" r="22" stroke="currentColor" class="text-blue-500 transition-all duration-500" stroke-width="4" fill="transparent"
-                                    :stroke-dasharray="2 * Math.PI * 22"
-                                    :stroke-dashoffset="2 * Math.PI * 22 * (1 - Math.min(Math.max(dailyGrowth, 0), 100) / 100)" />
-                        </svg>
-                        <span class="absolute text-[8px] font-extrabold text-muted-foreground">{{ Math.min(Math.max(Math.round(dailyGrowth), 0), 100) }}%</span>
+                    <!-- Pendapatan Bulanan -->
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <span class="text-[9px] font-bold text-muted-foreground uppercase">Bulan Ini</span>
+                            <h4 class="text-sm font-extrabold text-foreground">{{ formatRupiah(incomeThisMonth) }}</h4>
+                        </div>
+                        <div class="text-right">
+                            <span :class="['text-[10px] font-extrabold block', monthlyGrowth >= 0 ? 'text-green-600' : 'text-red-600']">
+                                {{ monthlyGrowth >= 0 ? '+' : '' }}{{ monthlyGrowth }}%
+                            </span>
+                            <span class="text-[8px] text-muted-foreground">vs bulan lalu</span>
+                        </div>
                     </div>
                 </div>
             </div>
 
-            <!-- 3. Pendapatan Bulanan Card -->
-            <div class="relative overflow-hidden rounded-xl border border-sidebar-border bg-card p-5 flex flex-col justify-between">
-                <div class="flex items-center justify-between">
-                    <h3 class="text-xs font-bold text-muted-foreground uppercase tracking-wider">Pendapatan Bulanan</h3>
+            <!-- 3. Top Produk Terlaris Card -->
+            <div class="relative flex flex-col rounded-xl border border-sidebar-border bg-card p-5 shadow-sm justify-between">
+                <div class="flex items-center justify-between mb-3">
+                    <h3 class="text-xs font-bold text-muted-foreground uppercase tracking-wider">Top Produk Terlaris</h3>
                     <span class="text-blue-500 bg-blue-500/10 p-1.5 rounded-lg">
                         <ShoppingCart class="h-4 w-4" />
                     </span>
                 </div>
-                <div class="mt-4">
-                    <h4 class="text-xl font-extrabold text-foreground">{{ formatRupiah(incomeThisMonth) }}</h4>
-                    <div class="mt-1 flex items-center gap-1 text-[10px] font-bold">
-                        <span :class="monthlyGrowth >= 0 ? 'text-green-600' : 'text-red-600'">
-                            {{ monthlyGrowth >= 0 ? '+' : '' }}{{ monthlyGrowth }}%
-                        </span>
-                        <span class="text-muted-foreground">dibanding bulan lalu</span>
-                    </div>
-                </div>
-                
-                <!-- Wave Line Chart SVG at the bottom -->
-                <div class="mt-4 h-8 w-full opacity-60">
-                    <svg class="h-full w-full" viewBox="0 0 100 20" preserveAspectRatio="none">
-                        <path d="M 0 15 Q 25 5 50 15 T 100 10 L 100 20 L 0 20 Z" fill="url(#wave-gradient)" />
-                        <path d="M 0 15 Q 25 5 50 15 T 100 10" stroke="currentColor" class="text-blue-500" stroke-width="1.5" fill="transparent" />
-                        <defs>
-                            <linearGradient id="wave-gradient" x1="0" y1="0" x2="0" y2="1">
-                                <stop offset="0%" stop-color="rgba(59, 130, 246, 0.4)" />
-                                <stop offset="100%" stop-color="rgba(59, 130, 246, 0)" />
-                            </linearGradient>
-                        </defs>
-                    </svg>
-                </div>
-            </div>
-        </div>
-
-        <!-- Large Chart Grid & Top Products -->
-        <div class="grid gap-4 lg:grid-cols-3">
-            <!-- Sales Chart (2 Columns width on large screen) -->
-            <div class="relative overflow-hidden rounded-xl border border-sidebar-border bg-card p-5 lg:col-span-2 flex flex-col justify-between">
-                <div class="flex items-center justify-between">
-                    <h3 class="text-sm font-bold text-foreground flex items-center gap-1.5">
-                        <span class="inline-block h-2 w-2 rounded-full bg-blue-500"></span>
-                        Transaksi Penjualan
-                    </h3>
-                    <span class="rounded bg-muted px-2 py-0.5 text-[10px] font-semibold text-muted-foreground">7 Hari Terakhir</span>
-                </div>
-                
-                <!-- SVG Bar Chart -->
-                <div class="mt-6 flex h-48 w-full items-end justify-between px-2 relative">
-                    <!-- Y-Axis Labels -->
-                    <div class="absolute left-0 top-0 bottom-6 flex flex-col justify-between text-[8px] font-bold text-muted-foreground/60 select-none">
-                        <span>{{ formatRupiah(maxChartValue) }}</span>
-                        <span>{{ formatRupiah(maxChartValue / 2) }}</span>
-                        <span>Rp 0</span>
-                    </div>
-
-                    <!-- Bars Container -->
-                    <div class="flex-1 ml-10 h-full flex items-end justify-around pb-6 border-b border-border relative">
-                        <!-- Horizontal Grid Lines -->
-                        <div class="absolute left-0 right-0 top-0 border-t border-dashed border-muted-foreground/15"></div>
-                        <div class="absolute left-0 right-0 top-1/2 border-t border-dashed border-muted-foreground/15"></div>
-                        
-                        <div 
-                            v-for="(day, idx) in chartData" 
-                            :key="idx"
-                            class="flex flex-col items-center flex-1 group"
-                        >
-                            <!-- Tooltip on hover -->
-                            <div class="absolute bottom-full mb-1 opacity-0 group-hover:opacity-100 transition-opacity bg-neutral-900 text-white text-[9px] font-bold py-1 px-1.5 rounded shadow-md z-20 pointer-events-none">
-                                {{ formatRupiah(day.sales) }}
-                            </div>
-                            
-                            <!-- Bar -->
-                            <div 
-                                class="w-8 bg-blue-500 rounded-t-sm transition-all duration-500 hover:bg-blue-600 shadow-sm"
-                                :style="{ height: `${(day.sales / maxChartValue) * 100}%`, minHeight: day.sales > 0 ? '4px' : '0px' }"
-                            ></div>
-                            
-                            <!-- Date Label -->
-                            <span class="absolute bottom-1 text-[8px] font-bold text-muted-foreground/80 mt-1">
-                                {{ day.label }}
-                            </span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Top Product List Card -->
-            <div class="relative flex flex-col rounded-xl border border-sidebar-border bg-card p-5 shadow-sm">
-                <h3 class="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-4">Top Produk Terlaris</h3>
-                <div class="flex flex-col gap-3 overflow-y-auto max-h-[200px] pr-1">
+                <div class="flex flex-col gap-2 overflow-y-auto max-h-[140px] pr-1">
                     <div 
                         v-for="(prod, idx) in topProducts" 
                         :key="idx"
-                        class="flex items-center justify-between p-2.5 border rounded-xl bg-muted/5"
+                        class="flex items-center justify-between p-2 border rounded-lg bg-muted/5"
                     >
-                        <div class="flex items-center gap-2">
-                            <span class="flex h-5 w-5 items-center justify-center rounded-lg bg-orange-500/10 text-orange-600 text-[10px] font-bold">
+                        <div class="flex items-center gap-1.5 min-w-0">
+                            <span class="flex h-5 w-5 shrink-0 items-center justify-center rounded bg-orange-500/15 text-orange-600 text-[10px] font-extrabold">
                                 {{ idx + 1 }}
                             </span>
-                            <div>
-                                <h4 class="text-xs font-bold text-foreground">{{ prod.name }}</h4>
-                                <p class="text-[9px] text-muted-foreground mt-0.5">Pendapatan: {{ formatRupiah(prod.revenue) }}</p>
+                            <div class="min-w-0">
+                                <h4 class="text-[11px] font-bold text-foreground truncate">{{ prod.name }}</h4>
+                                <p class="text-[8px] text-muted-foreground mt-0.5">{{ formatRupiah(prod.revenue) }}</p>
                             </div>
                         </div>
-                        <div class="text-right shrink-0">
-                            <span class="text-xs font-extrabold text-orange-600 block">{{ prod.sold }}x</span>
-                            <span class="text-[8px] text-muted-foreground mt-0.5 block">Terjual</span>
+                        <div class="text-right shrink-0 ml-2">
+                            <span class="text-xs font-extrabold text-orange-600">{{ prod.sold }}x</span>
                         </div>
                     </div>
                 </div>
