@@ -112,6 +112,14 @@ class POSController extends Controller
     }
 
     /**
+     * Display the separate POS AI Transaction screen.
+     */
+    public function transaksiAi(): Response
+    {
+        return Inertia::render('TransaksiAi');
+    }
+
+    /**
      * Display the POS screen.
      */
     public function index(): Response
