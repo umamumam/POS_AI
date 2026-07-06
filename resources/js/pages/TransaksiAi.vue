@@ -326,18 +326,27 @@ const setQuickPay = (amount: number) => {
     payAmount.value = amount;
 };
 
-// Fetch today's transactions list
+// Fetch transactions list with server-side pagination and search
 const isViewingAllTransactions = ref(false);
+const transactionsPagination = ref<any>(null);
+const currentPageTransactions = ref(1);
 
-const fetchTodayTransactions = async () => {
+const fetchTodayTransactions = async (page = 1) => {
     isLoadingTransactions.value = true;
+    currentPageTransactions.value = page;
     try {
-        const url = isViewingAllTransactions.value 
-            ? '/api/transactions/today?all=true' 
-            : '/api/transactions/today';
+        let url = isViewingAllTransactions.value 
+            ? `/api/transactions/today?all=true&page=${page}` 
+            : `/api/transactions/today?page=${page}`;
+            
+        if (transactionSearchQuery.value.trim()) {
+            url += `&q=${encodeURIComponent(transactionSearchQuery.value)}`;
+        }
+        
         const response = await fetch(url);
         const data = await response.json();
-        todayTransactions.value = data;
+        todayTransactions.value = data.data || [];
+        transactionsPagination.value = data;
     } catch (err) {
         console.error('Gagal mengambil data transaksi:', err);
     } finally {
@@ -345,20 +354,22 @@ const fetchTodayTransactions = async () => {
     }
 };
 
-const filteredTransactions = computed(() => {
-    if (!transactionSearchQuery.value.trim()) return todayTransactions.value;
-    return todayTransactions.value.filter((t) => 
-        t.kode.toLowerCase().includes(transactionSearchQuery.value.toLowerCase())
-    );
+let transactionSearchTimeout: any = null;
+watch(transactionSearchQuery, () => {
+    clearTimeout(transactionSearchTimeout);
+    transactionSearchTimeout = setTimeout(() => {
+        fetchTodayTransactions(1);
+    }, 400);
 });
 
 const cameFromList = ref(false);
 
 const openTransactionsModal = (viewAll = false) => {
     isViewingAllTransactions.value = viewAll === true;
+    transactionSearchQuery.value = '';
     cameFromList.value = false;
     showTransactionsModal.value = true;
-    fetchTodayTransactions();
+    fetchTodayTransactions(1);
 };
 
 const printTransactionReceipt = (receipt: Receipt) => {
@@ -943,7 +954,7 @@ const printReceipt = () => {
                 <!-- Search bar & entries info -->
                 <div class="flex flex-col md:flex-row md:items-center justify-between gap-3 bg-muted/10 p-3 border rounded-xl">
                     <span class="text-xs font-bold text-muted-foreground uppercase tracking-wider">
-                        {{ filteredTransactions.length }} Transaksi Ditemukan
+                        {{ transactionsPagination?.total || 0 }} Transaksi Ditemukan
                     </span>
                     <div class="relative w-full md:w-64">
                         <Search class="absolute top-2.5 left-3 h-4 w-4 text-muted-foreground" />
@@ -977,18 +988,18 @@ const printReceipt = () => {
                                     <p class="mt-2 text-xs">Memuat data transaksi...</p>
                                 </td>
                             </tr>
-                            <tr v-else-if="filteredTransactions.length === 0" class="border-b last:border-0">
+                            <tr v-else-if="todayTransactions.length === 0" class="border-b last:border-0">
                                 <td colspan="7" class="p-8 text-center text-muted-foreground font-semibold">
-                                    Tidak ada transaksi hari ini yang cocok.
+                                    Tidak ada transaksi ditemukan.
                                 </td>
                             </tr>
                             <tr 
                                 v-else
-                                v-for="(trx, idx) in filteredTransactions" 
+                                v-for="(trx, idx) in todayTransactions" 
                                 :key="trx.id"
                                 class="border-b last:border-0 hover:bg-muted/5 transition-colors font-medium text-foreground"
                             >
-                                <td class="p-3">{{ idx + 1 }}</td>
+                                <td class="p-3">{{ ((currentPageTransactions - 1) * 10) + idx + 1 }}</td>
                                 <td class="p-3 font-bold text-orange-600">{{ trx.kode }}</td>
                                 <td class="p-3">{{ formatDate(trx.tanggaltransaksi) }}</td>
                                 <td class="p-3 font-extrabold">{{ formatRupiah(trx.total) }}</td>
@@ -1017,6 +1028,29 @@ const printReceipt = () => {
                             </tr>
                         </tbody>
                     </table>
+                </div>
+
+                <!-- Pagination Controls -->
+                <div v-if="transactionsPagination && transactionsPagination.last_page > 1" class="flex items-center justify-between border-t pt-3 mt-1 text-xs">
+                    <span class="text-[10px] font-bold text-muted-foreground uppercase">
+                        Halaman {{ transactionsPagination.current_page }} dari {{ transactionsPagination.last_page }}
+                    </span>
+                    
+                    <div class="flex items-center gap-1.5">
+                        <button
+                            v-for="(link, lIdx) in transactionsPagination.links"
+                            :key="lIdx"
+                            v-show="link.url && link.label.includes('Previous') === false && link.label.includes('Next') === false"
+                            @click="fetchTodayTransactions(parseInt(link.label))"
+                            :class="[
+                                'px-2.5 py-1 text-xs font-bold rounded border transition-all',
+                                link.active 
+                                    ? 'bg-orange-600 border-orange-600 text-white shadow-xs' 
+                                    : 'bg-background hover:bg-muted text-muted-foreground'
+                            ]"
+                            v-html="link.label"
+                        />
+                    </div>
                 </div>
             </div>
 

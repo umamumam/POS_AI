@@ -174,14 +174,19 @@ class POSController extends Controller
     public function getTodayTransactions(Request $request)
     {
         $all = $request->input('all');
+        $query = $request->input('q');
         
-        $query = Transaksi::with(['details.produk'])->orderBy('id', 'desc');
+        $trxQuery = Transaksi::with(['details.produk'])->orderBy('kode', 'desc');
         
         if ($all !== 'true') {
-            $query->whereDate('tanggaltransaksi', today());
+            $trxQuery->whereDate('tanggaltransaksi', today());
+        }
+
+        if (!empty($query)) {
+            $trxQuery->where('kode', 'like', '%' . $query . '%');
         }
         
-        $transactions = $query->get();
+        $transactions = $trxQuery->paginate(10);
             
         return response()->json($transactions);
     }
