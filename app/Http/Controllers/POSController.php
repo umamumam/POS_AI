@@ -502,7 +502,7 @@ class POSController extends Controller
 
         try {
             // Rollback old product stocks first!
-            foreach ($transaction->detailTransaksis as $detail) {
+            foreach ($transaction->details as $detail) {
                 $produk = Produk::find($detail->produk_id);
                 if ($produk) {
                     $produk->increment('stok', $detail->jumlah);
@@ -510,7 +510,7 @@ class POSController extends Controller
             }
 
             // Delete old details
-            $transaction->detailTransaksis()->delete();
+            $transaction->details()->delete();
 
             // Update Transaction total, bayar, kembalian
             $transaction->update([

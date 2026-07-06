@@ -433,13 +433,22 @@ watch(editTransactionSearch, () => {
 const addProductToEditCart = (prod: Product) => {
     const existingIndex = editTransactionCart.value.findIndex(item => item.product.id === prod.id);
     if (existingIndex > -1) {
-        editTransactionCart.value[existingIndex].qty += 1;
+        const newQty = editTransactionCart.value[existingIndex].qty + 1;
+        if (newQty <= prod.stok) {
+            editTransactionCart.value[existingIndex].qty = newQty;
+        } else {
+            alert(`Stok untuk ${prod.nama} sudah mencapai batas maksimum.`);
+        }
     } else {
-        editTransactionCart.value.push({
-            product: prod,
-            qty: 1,
-            harga: prod.harga_jual
-        });
+        if (prod.stok > 0) {
+            editTransactionCart.value.push({
+                product: prod,
+                qty: 1,
+                harga: prod.harga_jual
+            });
+        } else {
+            alert(`Produk ${prod.nama} habis.`);
+        }
     }
     editTransactionSearch.value = '';
     editTransactionSearchProducts.value = [];
