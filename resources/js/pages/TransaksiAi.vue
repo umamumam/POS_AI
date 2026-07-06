@@ -297,17 +297,24 @@ const addManualProductToCart = (product: Product) => {
     );
 
     if (existingIndex > -1) {
-        const newQty = cart.value[existingIndex].qty + 1;
-        if (newQty <= product.stok) {
-            cart.value[existingIndex].qty = newQty;
-        } else {
-            alert(`Stok untuk ${product.nama} sudah mencapai batas maksimum.`);
-        }
+        Swal.fire({
+            icon: 'warning',
+            title: 'Produk Sudah Ada',
+            text: `${product.nama} sudah ada di keranjang. Silakan klik tombol (+) untuk menambah jumlah.`,
+            confirmButtonColor: '#ea580c',
+            timer: 3000,
+        });
     } else {
         if (product.stok > 0) {
             cart.value.push({ product, qty: 1 });
         } else {
-            alert(`Produk ${product.nama} habis.`);
+            Swal.fire({
+                icon: 'error',
+                title: 'Stok Habis',
+                text: `Produk ${product.nama} sudah habis.`,
+                confirmButtonColor: '#ea580c',
+                timer: 2000,
+            });
         }
     }
     manualSearchQuery.value = '';
@@ -467,12 +474,13 @@ const addProductToEditCart = (prod: Product) => {
         (item) => item.product.id === prod.id,
     );
     if (existingIndex > -1) {
-        const newQty = editTransactionCart.value[existingIndex].qty + 1;
-        if (newQty <= prod.stok) {
-            editTransactionCart.value[existingIndex].qty = newQty;
-        } else {
-            alert(`Stok untuk ${prod.nama} sudah mencapai batas maksimum.`);
-        }
+        Swal.fire({
+            icon: 'warning',
+            title: 'Produk Sudah Ada',
+            text: `${prod.nama} sudah ada di keranjang. Silakan klik tombol (+) untuk menambah jumlah.`,
+            confirmButtonColor: '#ea580c',
+            timer: 3000,
+        });
     } else {
         if (prod.stok > 0) {
             editTransactionCart.value.push({
@@ -481,7 +489,13 @@ const addProductToEditCart = (prod: Product) => {
                 harga: prod.harga_jual,
             });
         } else {
-            alert(`Produk ${prod.nama} habis.`);
+            Swal.fire({
+                icon: 'error',
+                title: 'Stok Habis',
+                text: `Produk ${prod.nama} sudah habis.`,
+                confirmButtonColor: '#ea580c',
+                timer: 2000,
+            });
         }
     }
     editTransactionSearch.value = '';
