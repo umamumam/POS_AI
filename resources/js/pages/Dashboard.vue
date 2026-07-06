@@ -12,6 +12,7 @@ import {
     Crown
 } from '@lucide/vue';
 import { Chart, registerables } from 'chart.js';
+import Swal from 'sweetalert2';
 import { onMounted, ref } from 'vue';
 
 Chart.register(...registerables);
@@ -28,6 +29,7 @@ const props = defineProps<{
     chartData: Array<{ label: string; sales: number }>;
     monthlyReport: Array<{ label: string; sales: number }>;
     topProducts: Array<{ name: string; sold: number; revenue: number }>;
+    lowStockCount: number;
 }>();
 
 defineOptions({
@@ -58,22 +60,30 @@ const chartCanvasRef = ref<HTMLCanvasElement | null>(null);
 
 onMounted(() => {
     if (chartCanvasRef.value) {
+        const ctx = chartCanvasRef.value.getContext('2d');
+        let gradientBg = 'rgba(230, 98, 57, 0.8)';
+        
+        if (ctx) {
+            const gradient = ctx.createLinearGradient(0, 0, 0, 240);
+            gradient.addColorStop(0, '#e66239');      // Solid orange at top
+            gradient.addColorStop(1, 'rgba(230, 98, 57, 0.15)'); // Faded orange at bottom
+            gradientBg = gradient;
+        }
+
         new Chart(chartCanvasRef.value, {
-            type: 'line',
+            type: 'bar',
             data: {
                 labels: props.chartData.map(d => d.label),
                 datasets: [
                     {
                         label: 'Penjualan (Rp)',
                         data: props.chartData.map(d => d.sales),
+                        backgroundColor: gradientBg,
                         borderColor: '#e66239',
-                        backgroundColor: 'rgba(230, 98, 57, 0.04)',
-                        fill: true,
-                        tension: 0.4,
-                        borderWidth: 2,
-                        pointBackgroundColor: '#e66239',
-                        pointHoverRadius: 6,
-                        pointRadius: 3
+                        borderWidth: 1.5,
+                        borderRadius: 6,
+                        borderSkipped: false,
+                        barPercentage: 0.5
                     }
                 ]
             },
@@ -114,6 +124,27 @@ onMounted(() => {
                     }
                 }
             }
+        });
+    }
+
+    // Show warning toast if there are low stock products
+    if (props.lowStockCount > 0) {
+        const Toast = Swal.mixin({
+            toast: true,
+            position: 'top-end',
+            showConfirmButton: false,
+            timer: 5000,
+            timerProgressBar: true,
+            didOpen: (toast) => {
+                toast.addEventListener('mouseenter', Swal.stopTimer);
+                toast.addEventListener('mouseleave', Swal.resumeTimer);
+            }
+        });
+
+        Toast.fire({
+            icon: 'warning',
+            title: 'Pemberitahuan Stok Rendah',
+            text: `Terdapat ${props.lowStockCount} produk dengan stok di bawah 20 item. Silakan periksa kembali.`
         });
     }
 });

@@ -24,7 +24,7 @@ const mainNavItems: NavItem[] = [
         icon: LayoutGrid,
     },
     {
-        title: 'POS AI',
+        title: 'Transaksi',
         href: '/transaksi-ai',
         icon: Mic,
     },

@@ -142,6 +142,8 @@ class POSController extends Controller
             ];
         }
 
+        $lowStockCount = Produk::where('stok', '<=', 20)->count();
+
         return Inertia::render('Dashboard', [
             'incomeToday' => (int) $incomeToday,
             'dailyGrowth' => round($dailyGrowth, 2),
@@ -153,7 +155,8 @@ class POSController extends Controller
             'avgGrowth' => round($avgGrowth, 2),
             'chartData' => $chartData,
             'monthlyReport' => $monthlyReport,
-            'topProducts' => $topProducts
+            'topProducts' => $topProducts,
+            'lowStockCount' => (int) $lowStockCount
         ]);
     }
 

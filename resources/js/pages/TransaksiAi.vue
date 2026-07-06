@@ -68,7 +68,7 @@ defineOptions({
     layout: {
         breadcrumbs: [
             {
-                title: 'POS AI',
+                title: 'Transaksi',
                 href: '/transaksi-ai',
             },
         ],
@@ -494,33 +494,32 @@ const printReceipt = () => {
 </script>
 
 <template>
-    <Head title="POS AI" />
+    <Head title="Transaksi Kasir" />
 
-    <div class="flex h-full flex-1 flex-col gap-4 overflow-x-auto rounded-xl p-4">
-        <!-- Voice, Text, & Manual POS Transaction Panel -->
-        <div class="relative flex flex-col rounded-xl border border-sidebar-border bg-card p-6 shadow-sm">
-            <div class="flex items-center justify-between pb-4 border-b flex-wrap gap-3">
-                <div class="flex items-center gap-2.5">
-                    <div class="rounded-lg bg-orange-500/15 p-2 text-orange-600">
-                        <Mic class="h-5 w-5 animate-pulse" />
-                    </div>
-                    <div>
-                        <h3 class="text-sm font-extrabold text-foreground">Transaksi Cepat via Suara, Teks, & Pencarian Manual AI</h3>
-                        <p class="text-xs text-muted-foreground">Gunakan input suara, ketik perintah teks, atau cari produk secara manual untuk memproses transaksi belanja secara cepat.</p>
-                    </div>
+    <div class="flex h-full flex-1 flex-col gap-6 overflow-x-auto rounded-xl p-4 font-sans text-[#171717]" style="font-family: 'Poppins', sans-serif;">
+        <!-- Header Info (Borderless & Flat layout) -->
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div class="flex items-center gap-2.5">
+                <div class="rounded-lg bg-orange-500/10 p-2 text-orange-600">
+                    <Mic class="h-5 w-5 animate-pulse" />
                 </div>
-                
-                <!-- Tombol Daftar Transaksi Hari Ini -->
-                <button
-                    @click="openTransactionsModal"
-                    class="flex items-center gap-1.5 rounded-lg border border-orange-500/30 bg-orange-500/5 px-3 py-1.5 text-xs font-bold text-orange-600 shadow-sm transition-all hover:bg-orange-500/10 active:scale-95"
-                >
-                    <ListFilter class="h-4 w-4" />
-                    <span>Daftar Transaksi</span>
-                </button>
+                <div>
+                    <h2 class="text-xl font-extrabold tracking-tight text-[#171717] dark:text-white">Transaksi Cepat</h2>
+                    <p class="text-xs text-[#525252] dark:text-neutral-400">Gunakan input suara, ketik perintah teks, atau cari produk secara manual untuk memproses transaksi belanja secara cepat.</p>
+                </div>
             </div>
+            
+            <!-- Tombol Daftar Transaksi Hari Ini -->
+            <button
+                @click="openTransactionsModal"
+                class="flex items-center gap-1.5 rounded-lg border border-orange-500/30 bg-orange-500/5 px-3 py-1.5 text-xs font-bold text-orange-600 shadow-sm transition-all hover:bg-orange-500/10 active:scale-95"
+            >
+                <ListFilter class="h-4 w-4" />
+                <span>Daftar Transaksi</span>
+            </button>
+        </div>
 
-            <div class="mt-6 grid gap-6 lg:grid-cols-12">
+        <div class="grid gap-6 lg:grid-cols-12 mt-2">
                 <!-- Left Column: Tabs for Voice/Text vs Manual Search -->
                 <div class="flex flex-col gap-4 lg:col-span-5">
                     <!-- Navigation Tabs -->
@@ -772,7 +771,6 @@ const printReceipt = () => {
                 </div>
             </div>
         </div>
-    </div>
 
     <!-- DIALOG RECEIPT PRINT POPUP (Nota Format matches nota.blade.php exactly) -->
     <div

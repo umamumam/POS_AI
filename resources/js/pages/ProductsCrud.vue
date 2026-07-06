@@ -222,28 +222,27 @@ const confirmDelete = (product: Product) => {
 <template>
     <Head title="Manajemen Produk" />
 
-    <div class="flex h-full flex-1 flex-col gap-4 overflow-x-auto rounded-xl p-4">
-        <!-- Header Panel with Actions -->
-        <div class="relative flex flex-col gap-4 rounded-xl border border-sidebar-border bg-card p-6 shadow-sm">
-            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <div class="flex items-center gap-2.5">
-                    <div class="rounded-lg bg-orange-500/15 p-2 text-orange-600">
-                        <Package class="h-5 w-5" />
-                    </div>
-                    <div>
-                        <h3 class="text-sm font-extrabold text-foreground">Manajemen Produk (Master Data)</h3>
-                        <p class="text-xs text-muted-foreground">Kelola persediaan barang dagangan, harga beli, harga jual, dan kategori produk toko Anda.</p>
-                    </div>
+    <div class="flex h-full flex-1 flex-col gap-6 overflow-x-auto rounded-xl p-4 font-sans text-[#171717]" style="font-family: 'Poppins', sans-serif;">
+        <!-- Header Info (Borderless & Flat layout) -->
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div class="flex items-center gap-2.5">
+                <div class="rounded-lg bg-orange-500/10 p-2 text-orange-600">
+                    <Package class="h-5 w-5" />
                 </div>
-
-                <button
-                    @click="openCreateModal"
-                    class="flex items-center justify-center gap-1.5 rounded-lg bg-orange-600 px-4 py-2 text-xs font-bold text-white shadow-lg shadow-orange-600/15 hover:bg-orange-700 active:scale-95 transition-all self-start sm:self-center"
-                >
-                    <Plus class="h-4 w-4" />
-                    <span>Tambah Produk Baru</span>
-                </button>
+                <div>
+                    <h2 class="text-xl font-extrabold tracking-tight text-[#171717] dark:text-white">Manajemen Produk</h2>
+                    <p class="text-xs text-[#525252] dark:text-neutral-400">Kelola persediaan barang dagangan, harga beli, harga jual, dan kategori produk toko Anda.</p>
+                </div>
             </div>
+
+            <button
+                @click="openCreateModal"
+                class="flex items-center justify-center gap-1.5 rounded-lg bg-orange-600 px-4 py-2 text-xs font-bold text-white shadow-lg shadow-orange-600/15 hover:bg-orange-700 active:scale-95 transition-all self-start sm:self-center"
+            >
+                <Plus class="h-4 w-4" />
+                <span>Tambah Produk Baru</span>
+            </button>
+        </div>
 
             <!-- Tab Buttons (Semua Produk vs Stok Rendah) -->
             <div class="flex gap-1.5 border-b pb-3 mt-2">
@@ -406,7 +405,6 @@ const confirmDelete = (product: Product) => {
                 </div>
             </div>
         </div>
-    </div>
 
     <!-- DIALOG: TAMBAH PRODUK MODAL -->
     <div
