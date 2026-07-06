@@ -470,4 +470,94 @@ class POSController extends Controller
             ], 500);
         }
     }
+
+    /**
+     * Update transaction details (items, pay amount, recalculate change/total).
+     */
+    public function updateTransaction(Request $request, Transaksi $transaction)
+    {
+        $request->validate([
+            'items' => 'required|array|min:1',
+            'items.*.id' => 'required|exists:produks,id',
+            'items.*.qty' => 'required|integer|min:1',
+            'items.*.harga' => 'required|integer',
+            'total' => 'required|integer',
+            'bayar' => 'required|integer|min:0',
+        ]);
+
+        $items = $request->input('items');
+        $total = $request->input('total');
+        $bayar = $request->input('bayar');
+
+        if ($bayar < $total) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Jumlah pembayaran kurang dari total belanja.'
+            ], 422);
+        }
+
+        $kembalian = $bayar - $total;
+
+        DB::beginTransaction();
+
+        try {
+            // Rollback old product stocks first!
+            foreach ($transaction->detailTransaksis as $detail) {
+                $produk = Produk::find($detail->produk_id);
+                if ($produk) {
+                    $produk->increment('stok', $detail->jumlah);
+                }
+            }
+
+            // Delete old details
+            $transaction->detailTransaksis()->delete();
+
+            // Update Transaction total, bayar, kembalian
+            $transaction->update([
+                'total' => $total,
+                'bayar' => $bayar,
+                'kembalian' => $kembalian,
+            ]);
+
+            // Process new items and decrement stock
+            foreach ($items as $item) {
+                $produk = Produk::find($item['id']);
+
+                if ($produk->stok < $item['qty']) {
+                    throw new \Exception("Stok produk '{$produk->nama}' tidak mencukupi. Tersisa: {$produk->stok}.");
+                }
+
+                // Create Transaction Detail
+                DetailTransaksi::create([
+                    'transaksi_id' => $transaction->id,
+                    'produk_id' => $produk->id,
+                    'jumlah' => $item['qty'],
+                    'harga' => $item['harga'],
+                    'subtotal' => $item['harga'] * $item['qty'],
+                ]);
+
+                // Decrement Stock
+                $produk->decrement('stok', $item['qty']);
+            }
+
+            DB::commit();
+
+            // Load updated transaction details
+            $receipt = Transaksi::with(['details.produk'])->find($transaction->id);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Transaksi berhasil diperbarui!',
+                'receipt' => $receipt,
+            ]);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('POS Transaction Update Error: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage()
+            ], 500);
+        }
+    }
 }

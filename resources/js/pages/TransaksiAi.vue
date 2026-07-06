@@ -14,8 +14,10 @@ import {
     X, 
     Printer,
     Search,
-    ListFilter
+    ListFilter,
+    Edit
 } from '@lucide/vue';
+import Swal from 'sweetalert2';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 
@@ -364,6 +366,168 @@ watch(transactionSearchQuery, () => {
 
 const cameFromList = ref(false);
 
+// Edit Transaction States
+const showEditTransactionModal = ref(false);
+const editingTransaction = ref<Receipt | null>(null);
+const editTransactionCart = ref<Array<{ product: Product; qty: number; harga: number }>>([]);
+const editTransactionPay = ref<number>(0);
+const editTransactionSearch = ref('');
+const editTransactionSearchProducts = ref<Product[]>([]);
+const isSearchingEditTrx = ref(false);
+
+const editTransactionTotal = computed(() => {
+    return editTransactionCart.value.reduce((total, item) => total + (item.harga * item.qty), 0);
+});
+
+const editTransactionChange = computed(() => {
+    if (editTransactionPay.value < editTransactionTotal.value) return 0;
+    return editTransactionPay.value - editTransactionTotal.value;
+});
+
+const openEditTransactionModal = (trx: Receipt) => {
+    editingTransaction.value = trx;
+    
+    // Copy transaction details into edit transaction cart
+    editTransactionCart.value = trx.details.map((detail) => ({
+        product: detail.produk,
+        qty: detail.jumlah,
+        harga: detail.harga,
+    }));
+    
+    editTransactionPay.value = trx.bayar;
+    editTransactionSearch.value = '';
+    editTransactionSearchProducts.value = [];
+    
+    // Close the list modal first
+    showTransactionsModal.value = false;
+    cameFromList.value = true;
+    showEditTransactionModal.value = true;
+};
+
+// Search products to add inside edit modal
+const fetchEditTrxSearchProducts = async () => {
+    if (!editTransactionSearch.value.trim()) {
+        editTransactionSearchProducts.value = [];
+        return;
+    }
+    isSearchingEditTrx.value = true;
+    try {
+        const response = await fetch(`/api/products?q=${encodeURIComponent(editTransactionSearch.value)}`);
+        const data = await response.json();
+        editTransactionSearchProducts.value = data.data || [];
+    } catch (err) {
+        console.error('Gagal mengambil produk pencarian edit:', err);
+    } finally {
+        isSearchingEditTrx.value = false;
+    }
+};
+
+let editTrxSearchTimeout: any = null;
+watch(editTransactionSearch, () => {
+    clearTimeout(editTrxSearchTimeout);
+    editTrxSearchTimeout = setTimeout(() => {
+        fetchEditTrxSearchProducts();
+    }, 300);
+});
+
+const addProductToEditCart = (prod: Product) => {
+    const existingIndex = editTransactionCart.value.findIndex(item => item.product.id === prod.id);
+    if (existingIndex > -1) {
+        editTransactionCart.value[existingIndex].qty += 1;
+    } else {
+        editTransactionCart.value.push({
+            product: prod,
+            qty: 1,
+            harga: prod.harga_jual
+        });
+    }
+    editTransactionSearch.value = '';
+    editTransactionSearchProducts.value = [];
+};
+
+const updateEditCartQty = (productId: number, change: number) => {
+    const index = editTransactionCart.value.findIndex(item => item.product.id === productId);
+    if (index > -1) {
+        const item = editTransactionCart.value[index];
+        const newQty = item.qty + change;
+        if (newQty <= 0) {
+            editTransactionCart.value.splice(index, 1);
+        } else {
+            item.qty = newQty;
+        }
+    }
+};
+
+const removeProductFromEditCart = (productId: number) => {
+    const index = editTransactionCart.value.findIndex(item => item.product.id === productId);
+    if (index > -1) {
+        editTransactionCart.value.splice(index, 1);
+    }
+};
+
+const closeEditTransactionModal = () => {
+    showEditTransactionModal.value = false;
+    editingTransaction.value = null;
+    if (cameFromList.value) {
+        showTransactionsModal.value = true;
+        cameFromList.value = false;
+    }
+};
+
+const submitUpdateTransaction = async () => {
+    if (!editingTransaction.value || editTransactionCart.value.length === 0) return;
+    
+    if (editTransactionPay.value < editTransactionTotal.value) {
+        alert('Jumlah pembayaran kurang dari total belanja.');
+        return;
+    }
+    
+    try {
+        const token = getCsrfToken();
+        const itemsPayload = editTransactionCart.value.map(item => ({
+            id: item.product.id,
+            qty: item.qty,
+            harga: item.harga,
+        }));
+        
+        const response = await fetch(`/api/transactions/${editingTransaction.value.id}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                Accept: 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-XSRF-TOKEN': token || '',
+            },
+            body: JSON.stringify({
+                items: itemsPayload,
+                total: editTransactionTotal.value,
+                bayar: editTransactionPay.value,
+            }),
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok && data.success) {
+            showEditTransactionModal.value = false;
+            activeReceipt.value = data.receipt;
+            showReceiptModal.value = true;
+            
+            Swal.fire({
+                icon: 'success',
+                title: 'Berhasil!',
+                text: 'Transaksi berhasil diperbarui.',
+                confirmButtonColor: '#ea580c',
+                timer: 2000
+            });
+        } else {
+            alert(data.message || 'Gagal memperbarui transaksi.');
+        }
+    } catch (err) {
+        console.error('Gagal memperbarui transaksi:', err);
+        alert('Terjadi kesalahan saat memproses pembaruan transaksi.');
+    }
+};
+
 const openTransactionsModal = (viewAll = false) => {
     isViewingAllTransactions.value = viewAll === true;
     transactionSearchQuery.value = '';
@@ -460,10 +624,10 @@ const printReceipt = () => {
                         }
                         body {
                             font-family: 'Plus Jakarta Sans', DejaVu Sans, sans-serif;
-                            font-size: 13px;
-                            line-height: 1.2;
+                            font-size: 15px;
+                            line-height: 1.4;
                             padding: 20px;
-                            width: 200px;
+                            width: 220px;
                             color: #000;
                             margin: 0;
                         }
@@ -477,7 +641,7 @@ const printReceipt = () => {
                             margin-bottom: 5px;
                         }
                         .details td, .details th {
-                            padding: 1px 0;
+                            padding: 3px 0;
                         }
                         .text-left {
                             text-align: left;
@@ -1023,6 +1187,14 @@ const printReceipt = () => {
                                         >
                                             <Printer class="h-3.5 w-3.5" />
                                         </button>
+                                        <!-- Edit Button -->
+                                        <button
+                                            @click="openEditTransactionModal(trx)"
+                                            class="flex h-7 w-7 items-center justify-center rounded-lg bg-amber-500 text-white hover:bg-amber-600 transition-colors shadow-sm"
+                                            title="Ubah Transaksi"
+                                        >
+                                            <Edit class="h-3.5 w-3.5" />
+                                        </button>
                                     </div>
                                 </td>
                             </tr>
@@ -1066,53 +1238,213 @@ const printReceipt = () => {
         </div>
     </div>
 
+    <!-- DIALOG UBAH TRANSAKSI MODAL -->
+    <div
+        v-if="showEditTransactionModal && editingTransaction"
+        class="fixed inset-0 z-50 flex animate-in items-center justify-center bg-black/60 p-4 fade-in"
+    >
+        <div
+            class="flex max-h-[90%] w-full max-w-[640px] animate-in flex-col rounded-xl bg-card shadow-xl duration-150 zoom-in-95"
+        >
+            <!-- Header -->
+            <div class="flex shrink-0 items-center justify-between border-b bg-muted/20 px-4 py-3">
+                <div class="flex items-center gap-2">
+                    <Edit class="h-5 w-5 text-orange-600" />
+                    <span class="text-sm font-extrabold text-foreground">Ubah Transaksi #{{ editingTransaction.kode }}</span>
+                </div>
+                <button
+                    @click="closeEditTransactionModal"
+                    class="rounded-full p-1 text-muted-foreground hover:bg-muted"
+                >
+                    <X class="h-4.5 w-4.5" />
+                </button>
+            </div>
+
+            <!-- Body -->
+            <div class="flex-1 overflow-y-auto p-4 flex flex-col gap-4">
+                <!-- Search Product to Add to Cart -->
+                <div class="flex flex-col gap-1.5 relative">
+                    <label class="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Tambah Produk Baru ke Transaksi</label>
+                    <div class="relative">
+                        <Search class="absolute top-2.5 left-3 h-4 w-4 text-muted-foreground" />
+                        <Input
+                            type="text"
+                            placeholder="Cari nama produk atau scan barcode..."
+                            v-model="editTransactionSearch"
+                            class="h-9 pl-9 text-xs focus-visible:ring-orange-500"
+                        />
+                    </div>
+                    
+                    <!-- Search Results Dropdown -->
+                    <div 
+                        v-if="editTransactionSearchProducts.length > 0"
+                        class="absolute left-0 right-0 top-16 z-30 max-h-48 overflow-y-auto rounded-lg border bg-popover text-popover-foreground shadow-md p-1"
+                    >
+                        <div
+                            v-for="prod in editTransactionSearchProducts"
+                            :key="prod.id"
+                            @click="addProductToEditCart(prod)"
+                            class="flex items-center justify-between px-3 py-2 text-xs font-semibold rounded hover:bg-muted cursor-pointer transition-colors"
+                        >
+                            <span>{{ prod.nama }}</span>
+                            <span class="text-orange-600">{{ formatRupiah(prod.harga_jual) }}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Cart Items List -->
+                <div class="flex flex-col gap-2">
+                    <label class="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Item Transaksi</label>
+                    <div class="border rounded-xl bg-background overflow-hidden max-h-60 overflow-y-auto">
+                        <table class="w-full text-left text-xs border-collapse">
+                            <thead>
+                                <tr class="bg-muted/30 border-b text-muted-foreground font-bold uppercase tracking-wider text-[10px]">
+                                    <th class="p-3">PRODUK</th>
+                                    <th class="p-3 text-right">HARGA</th>
+                                    <th class="p-3 text-center">QTY</th>
+                                    <th class="p-3 text-right">SUBTOTAL</th>
+                                    <th class="p-3 text-center">AKSI</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr 
+                                    v-for="item in editTransactionCart" 
+                                    :key="item.product.id"
+                                    class="border-b last:border-0 hover:bg-muted/5 transition-colors font-medium"
+                                >
+                                    <td class="p-3">
+                                        <div class="font-bold text-foreground">{{ item.product.nama }}</div>
+                                        <div class="text-[10px] text-muted-foreground">{{ item.product.kode }}</div>
+                                    </td>
+                                    <td class="p-3 text-right">{{ formatRupiah(item.harga) }}</td>
+                                    <td class="p-3">
+                                        <div class="flex items-center justify-center gap-1.5">
+                                            <button
+                                                type="button"
+                                                @click="updateEditCartQty(item.product.id, -1)"
+                                                class="flex h-5 w-5 items-center justify-center rounded bg-muted text-foreground hover:bg-muted-foreground/10 active:scale-90 transition-all"
+                                            >
+                                                <Minus class="h-3 w-3" />
+                                            </button>
+                                            <span class="w-6 text-center font-bold">{{ item.qty }}</span>
+                                            <button
+                                                type="button"
+                                                @click="updateEditCartQty(item.product.id, 1)"
+                                                class="flex h-5 w-5 items-center justify-center rounded bg-muted text-foreground hover:bg-muted-foreground/10 active:scale-90 transition-all"
+                                            >
+                                                <Plus class="h-3 w-3" />
+                                            </button>
+                                        </div>
+                                    </td>
+                                    <td class="p-3 text-right font-extrabold text-orange-600">
+                                        {{ formatRupiah(item.harga * item.qty) }}
+                                    </td>
+                                    <td class="p-3 text-center">
+                                        <button
+                                            type="button"
+                                            @click="removeProductFromEditCart(item.product.id)"
+                                            class="p-1 rounded text-red-500 hover:bg-red-50"
+                                        >
+                                            <Trash2 class="h-4 w-4" />
+                                        </button>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Payment inputs and calculations -->
+                <div class="grid gap-4 sm:grid-cols-2 bg-muted/10 p-4 border rounded-xl mt-2">
+                    <div class="flex flex-col gap-1.5">
+                        <label class="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Nominal Bayar (Cash)</label>
+                        <div class="relative">
+                            <span class="absolute left-3 top-2.5 text-xs font-bold text-muted-foreground">Rp</span>
+                            <Input
+                                type="number"
+                                v-model.number="editTransactionPay"
+                                placeholder="0"
+                                class="h-9 pl-8 text-xs font-bold focus-visible:ring-orange-500"
+                            />
+                        </div>
+                    </div>
+
+                    <div class="flex flex-col justify-center gap-1 text-right">
+                        <div class="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Total Belanja Baru</div>
+                        <div class="text-lg font-extrabold text-[#171717] dark:text-white">{{ formatRupiah(editTransactionTotal) }}</div>
+                        <div class="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mt-1">Kembalian</div>
+                        <div class="text-sm font-bold text-orange-600">{{ formatRupiah(editTransactionChange) }}</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Footer -->
+            <div class="flex shrink-0 justify-end gap-2 border-t bg-muted/20 p-3">
+                <Button
+                    @click="closeEditTransactionModal"
+                    variant="outline"
+                    class="h-8 text-xs font-bold"
+                >
+                    Batal
+                </Button>
+                <Button
+                    @click="submitUpdateTransaction"
+                    :disabled="editTransactionCart.length === 0 || editTransactionPay < editTransactionTotal"
+                    class="h-8 text-xs font-bold bg-orange-600 text-white hover:bg-orange-700 disabled:opacity-50"
+                >
+                    Simpan Perubahan
+                </Button>
+            </div>
+        </div>
+    </div>
+
     <!-- Hidden Print Target container that is ALWAYS in the DOM -->
     <div style="display: none;">
         <div id="receipt-print-area-transaksi-ai-always" v-if="activeReceipt">
-            <div style="font-family: 'Plus Jakarta Sans', DejaVu Sans, sans-serif; font-size: 13px; line-height: 1.2; width: 200px;">
+            <div style="font-family: 'Plus Jakarta Sans', DejaVu Sans, sans-serif; font-size: 15px; line-height: 1.4; width: 220px;">
                 <!-- Header Info -->
                 <div style="text-align: center; margin-bottom: 5px;">
-                    <h3 style="margin: 0 0 5px 0; font-size: 14px; font-weight: bold;">Agen Sosis <br> Lancar Manunggal</h3>
-                    <p style="margin: 0; font-size: 11px;">Jl. Raya Tayu-Jepara Km 7 <br> depan Kantor Pos Ngablak</p>
-                    <p style="margin: 0; font-size: 11px;">HP: 085201454015</p>
+                    <h3 style="margin: 0 0 5px 0; font-size: 16px; font-weight: bold;">Agen Sosis <br> Lancar Manunggal</h3>
+                    <p style="margin: 0; font-size: 12px;">Jl. Raya Tayu-Jepara Km 7 <br> depan Kantor Pos Ngablak</p>
+                    <p style="margin: 0; font-size: 12px;">HP: 085201454015</p>
                 </div>
 
                 <div style="border-bottom: 1px dashed #000; margin: 5px 0;"></div>
 
                 <!-- Meta Info -->
-                <table style="width: 100%; border-collapse: collapse; margin-bottom: 5px; font-size: 12px;">
+                <table style="width: 100%; border-collapse: collapse; margin-bottom: 5px; font-size: 13px;">
                     <tr>
-                        <td style="text-align: left; width: 90px; padding: 1px 0;">No Transaksi</td>
-                        <td style="text-align: left; padding: 1px 0;">: {{ activeReceipt.kode }}</td>
+                        <td style="text-align: left; width: 95px; padding: 3px 0;">No Transaksi</td>
+                        <td style="text-align: left; padding: 3px 0;">: {{ activeReceipt.kode }}</td>
                     </tr>
                     <tr>
-                        <td style="text-align: left; padding: 1px 0;">Tanggal</td>
-                        <td style="text-align: left; padding: 1px 0;">: {{ formatDate(activeReceipt.tanggaltransaksi) }}</td>
+                        <td style="text-align: left; padding: 3px 0;">Tanggal</td>
+                        <td style="text-align: left; padding: 3px 0;">: {{ formatDate(activeReceipt.tanggaltransaksi) }}</td>
                     </tr>
                 </table>
 
                 <div style="border-bottom: 1px dashed #000; margin: 5px 0;"></div>
 
                 <!-- Products List Table matching nota.blade.php -->
-                <table style="width: 100%; border-collapse: collapse; margin-bottom: 5px; font-size: 12px;">
+                <table style="width: 100%; border-collapse: collapse; margin-bottom: 5px; font-size: 13px;">
                     <thead>
                         <tr>
-                            <th style="text-align: left; padding: 1px 0; font-weight: bold;">Produk</th>
-                            <th style="text-align: right; padding: 1px 0; font-weight: bold; white-space: nowrap;">Subtotal</th>
+                            <th style="text-align: left; padding: 3px 0; font-weight: bold;">Produk</th>
+                            <th style="text-align: right; padding: 3px 0; font-weight: bold; white-space: nowrap;">Subtotal</th>
                         </tr>
                     </thead>
                     <tbody>
                         <template v-for="det in activeReceipt.details" :key="det.id">
                             <tr>
-                                <td style="text-align: left; vertical-align: top; padding: 1px 0;">
+                                <td style="text-align: left; vertical-align: top; padding: 3px 0;">
                                     {{ det.produk.nama }}
                                 </td>
-                                <td rowspan="2" style="text-align: right; vertical-align: bottom; padding: 1px 0; white-space: nowrap;">
+                                <td rowspan="2" style="text-align: right; vertical-align: bottom; padding: 3px 0; white-space: nowrap;">
                                     {{ formatNumber(det.subtotal) }}
                                 </td>
                             </tr>
                             <tr>
-                                <td style="text-align: left; font-size: 11px; padding-bottom: 5px; padding-top: 1px;">
+                                <td style="text-align: left; font-size: 13px; padding-bottom: 7px; padding-top: 1px;">
                                     {{ formatNumber(det.harga) }} x {{ det.jumlah }}
                                 </td>
                             </tr>
@@ -1123,26 +1455,26 @@ const printReceipt = () => {
                 <div style="border-bottom: 1px dashed #000; margin: 5px 0;"></div>
 
                 <!-- Summary Table -->
-                <table style="width: 100%; border-collapse: collapse; margin-bottom: 5px; font-size: 12px;">
+                <table style="width: 100%; border-collapse: collapse; margin-bottom: 5px; font-size: 13px;">
                     <tr>
-                        <td style="text-align: left; padding: 1px 0;">Total</td>
-                        <th style="text-align: right; padding: 1px 0; font-weight: bold;">: Rp {{ formatNumber(activeReceipt.total) }}</th>
+                        <td style="text-align: left; padding: 3px 0;">Total</td>
+                        <th style="text-align: right; padding: 3px 0; font-weight: bold;">: Rp {{ formatNumber(activeReceipt.total) }}</th>
                     </tr>
                     <tr>
-                        <td style="text-align: left; padding: 1px 0;">Bayar</td>
-                        <th style="text-align: right; padding: 1px 0; font-weight: bold;">: Rp {{ formatNumber(activeReceipt.bayar) }}</th>
+                        <td style="text-align: left; padding: 3px 0;">Bayar</td>
+                        <th style="text-align: right; padding: 3px 0; font-weight: bold;">: Rp {{ formatNumber(activeReceipt.bayar) }}</th>
                     </tr>
                     <tr>
-                        <td style="text-align: left; padding: 1px 0;">Kembalian</td>
-                        <th style="text-align: right; padding: 1px 0; font-weight: bold;">: Rp {{ formatNumber(activeReceipt.kembalian) }}</th>
+                        <td style="text-align: left; padding: 3px 0;">Kembalian</td>
+                        <th style="text-align: right; padding: 3px 0; font-weight: bold;">: Rp {{ formatNumber(activeReceipt.kembalian) }}</th>
                     </tr>
                 </table>
 
                 <div style="border-bottom: 1px dashed #000; margin: 5px 0;"></div>
 
                 <!-- Footer -->
-                <div style="text-align: center; margin-top: 5px; font-size: 11px;">
-                    <p style="margin: 0; line-height: 1.3;">Terima kasih telah berbelanja! <br>
+                <div style="text-align: center; margin-top: 5px; font-size: 12px;">
+                    <p style="margin: 0; line-height: 1.4;">Terima kasih telah berbelanja! <br>
                         Barang yang sudah dibeli <br>
                         tidak dapat dikembalikan.</p>
                 </div>

@@ -487,10 +487,10 @@ const printReceipt = () => {
                         }
                         body {
                             font-family: 'Plus Jakarta Sans', DejaVu Sans, sans-serif;
-                            font-size: 13px;
-                            line-height: 1.2;
+                            font-size: 15px;
+                            line-height: 1.4;
                             padding: 20px;
-                            width: 200px;
+                            width: 220px;
                             color: #000;
                             margin: 0;
                         }
@@ -504,7 +504,7 @@ const printReceipt = () => {
                             margin-bottom: 5px;
                         }
                         .details td, .details th {
-                            padding: 1px 0;
+                            padding: 3px 0;
                         }
                         .text-left {
                             text-align: left;
