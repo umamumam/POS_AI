@@ -347,7 +347,10 @@ const filteredTransactions = computed(() => {
     );
 });
 
+const cameFromList = ref(false);
+
 const openTransactionsModal = () => {
+    cameFromList.value = false;
     showTransactionsModal.value = true;
     fetchTodayTransactions();
 };
@@ -360,8 +363,18 @@ const printTransactionReceipt = (receipt: Receipt) => {
 };
 
 const viewReceiptDetail = (receipt: Receipt) => {
+    cameFromList.value = true;
+    showTransactionsModal.value = false;
     activeReceipt.value = receipt;
     showReceiptModal.value = true;
+};
+
+const closeReceiptModal = () => {
+    showReceiptModal.value = false;
+    if (cameFromList.value) {
+        showTransactionsModal.value = true;
+        cameFromList.value = false;
+    }
 };
 
 const checkoutTransaction = async () => {
@@ -415,7 +428,7 @@ const checkoutTransaction = async () => {
 };
 
 const printReceipt = () => {
-    const printContent = document.getElementById('receipt-print-area-transaksi-ai');
+    const printContent = document.getElementById('receipt-print-area-transaksi-ai-always');
     if (!printContent) return;
 
     const printWindow = window.open('', '_blank');
@@ -774,7 +787,7 @@ const printReceipt = () => {
             >
                 <span class="text-xs font-bold text-foreground">Struk Nota Belanja</span>
                 <button
-                    @click="showReceiptModal = false"
+                    @click="closeReceiptModal"
                     class="rounded-full p-1 text-muted-foreground hover:bg-muted"
                 >
                     <X class="h-4.5 w-4.5" />
@@ -869,7 +882,7 @@ const printReceipt = () => {
             <!-- Print Actions -->
             <div class="flex shrink-0 gap-2 border-t bg-muted/20 p-3">
                 <Button
-                    @click="showReceiptModal = false"
+                    @click="closeReceiptModal"
                     variant="outline"
                     class="h-8 flex-1 text-xs"
                 >
@@ -997,6 +1010,90 @@ const printReceipt = () => {
                 >
                     Tutup
                 </Button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Hidden Print Target container that is ALWAYS in the DOM -->
+    <div style="display: none;">
+        <div id="receipt-print-area-transaksi-ai-always" v-if="activeReceipt">
+            <div style="font-family: 'Plus Jakarta Sans', DejaVu Sans, sans-serif; font-size: 13px; line-height: 1.2; width: 200px;">
+                <!-- Header Info -->
+                <div style="text-align: center; margin-bottom: 5px;">
+                    <h3 style="margin: 0 0 5px 0; font-size: 14px; font-weight: bold;">Agen Sosis <br> Lancar Manunggal</h3>
+                    <p style="margin: 0; font-size: 11px;">Jl. Raya Tayu-Jepara Km 7 <br> depan Kantor Pos Ngablak</p>
+                    <p style="margin: 0; font-size: 11px;">HP: 085201454015</p>
+                </div>
+
+                <div style="border-bottom: 1px dashed #000; margin: 5px 0;"></div>
+
+                <!-- Meta Info -->
+                <table style="width: 100%; border-collapse: collapse; margin-bottom: 5px; font-size: 12px;">
+                    <tr>
+                        <td style="text-align: left; width: 90px; padding: 1px 0;">No Transaksi</td>
+                        <td style="text-align: left; padding: 1px 0;">: {{ activeReceipt.kode }}</td>
+                    </tr>
+                    <tr>
+                        <td style="text-align: left; padding: 1px 0;">Tanggal</td>
+                        <td style="text-align: left; padding: 1px 0;">: {{ formatDate(activeReceipt.tanggaltransaksi) }}</td>
+                    </tr>
+                </table>
+
+                <div style="border-bottom: 1px dashed #000; margin: 5px 0;"></div>
+
+                <!-- Products List Table matching nota.blade.php -->
+                <table style="width: 100%; border-collapse: collapse; margin-bottom: 5px; font-size: 12px;">
+                    <thead>
+                        <tr>
+                            <th style="text-align: left; padding: 1px 0; font-weight: bold;">Produk</th>
+                            <th style="text-align: right; padding: 1px 0; font-weight: bold; white-space: nowrap;">Subtotal</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <template v-for="det in activeReceipt.details" :key="det.id">
+                            <tr>
+                                <td style="text-align: left; vertical-align: top; padding: 1px 0;">
+                                    {{ det.produk.nama }}
+                                </td>
+                                <td rowspan="2" style="text-align: right; vertical-align: bottom; padding: 1px 0; white-space: nowrap;">
+                                    {{ formatNumber(det.subtotal) }}
+                                </td>
+                            </tr>
+                            <tr>
+                                <td style="text-align: left; font-size: 11px; padding-bottom: 5px; padding-top: 1px;">
+                                    {{ formatNumber(det.harga) }} x {{ det.jumlah }}
+                                </td>
+                            </tr>
+                        </template>
+                    </tbody>
+                </table>
+
+                <div style="border-bottom: 1px dashed #000; margin: 5px 0;"></div>
+
+                <!-- Summary Table -->
+                <table style="width: 100%; border-collapse: collapse; margin-bottom: 5px; font-size: 12px;">
+                    <tr>
+                        <td style="text-align: left; padding: 1px 0;">Total</td>
+                        <th style="text-align: right; padding: 1px 0; font-weight: bold;">: Rp {{ formatNumber(activeReceipt.total) }}</th>
+                    </tr>
+                    <tr>
+                        <td style="text-align: left; padding: 1px 0;">Bayar</td>
+                        <th style="text-align: right; padding: 1px 0; font-weight: bold;">: Rp {{ formatNumber(activeReceipt.bayar) }}</th>
+                    </tr>
+                    <tr>
+                        <td style="text-align: left; padding: 1px 0;">Kembalian</td>
+                        <th style="text-align: right; padding: 1px 0; font-weight: bold;">: Rp {{ formatNumber(activeReceipt.kembalian) }}</th>
+                    </tr>
+                </table>
+
+                <div style="border-bottom: 1px dashed #000; margin: 5px 0;"></div>
+
+                <!-- Footer -->
+                <div style="text-align: center; margin-top: 5px; font-size: 11px;">
+                    <p style="margin: 0; line-height: 1.3;">Terima kasih telah berbelanja! <br>
+                        Barang yang sudah dibeli <br>
+                        tidak dapat dikembalikan.</p>
+                </div>
             </div>
         </div>
     </div>
