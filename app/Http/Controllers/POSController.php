@@ -144,6 +144,64 @@ class POSController extends Controller
     }
 
     /**
+     * Analyze voice/text commands to find matching products and quantities.
+     */
+    public function analyzeText(Request $request)
+    {
+        $request->validate([
+            'text' => 'required|string|max:1000',
+        ]);
+
+        $text = $request->input('text');
+        $products = Produk::where('stok', '>', 0)->get();
+
+        try {
+            $geminiService = new \App\Services\GeminiService();
+            $matchResult = $geminiService->analyzeTextCommand($text, $products);
+
+            if (empty($matchResult) || empty($matchResult['matches'])) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Tidak ada produk yang cocok dengan perintah suara/teks Anda.',
+                ]);
+            }
+
+            // Resolve matches with real product models
+            $resolvedMatches = [];
+            foreach ($matchResult['matches'] as $match) {
+                $product = Produk::with('kategori')->find($match['matched_id']);
+                if ($product) {
+                    $resolvedMatches[] = [
+                        'product' => $product,
+                        'qty' => $match['qty'] ?? 1,
+                        'confidence' => $match['confidence'] ?? 1.0,
+                        'reason' => $match['reason'] ?? '',
+                    ];
+                }
+            }
+
+            if (empty($resolvedMatches)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Produk diidentifikasi tetapi tidak ditemukan di database.',
+                ]);
+            }
+
+            return response()->json([
+                'success' => true,
+                'matches' => $resolvedMatches,
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('POS Voice/Text Analysis Error: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Terjadi kesalahan sistem: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
      * Checkout transaction and update stock.
      */
     public function checkout(Request $request)

@@ -249,4 +249,200 @@ class GeminiService
             throw $e;
         }
     }
+
+    /**
+     * Analyze voice/text commands to find matching products and quantities.
+     */
+    public function analyzeTextCommand(string $text, $products)
+    {
+        // Format daftar produk
+        $productListStr = "Daftar Produk:\n";
+        $productListStr .= "ID | Kode | Nama Produk\n";
+        foreach ($products as $p) {
+            $productListStr .= "{$p['id']} | {$p['kode']} | {$p['nama']}\n";
+        }
+
+        $prompt = "TUGAS UTAMA:\n";
+        $prompt .= "Anda adalah AI kasir POS yang sangat cerdas dan teliti. Tugas Anda adalah memproses perintah suara/teks dari kasir dan mencocokkannya secara AKURAT dengan daftar produk di database di bawah ini.\n\n";
+        $prompt .= "PETUNJUK ANALISIS SANGAT KETAT:\n";
+        $prompt .= "1. Analisis kalimat kasir berikut: \"{$text}\". Temukan produk apa saja yang ingin dimasukkan ke keranjang belanja dan berapa jumlahnya (qty).\n";
+        $prompt .= "2. **Pencocokan ID**: Temukan produk di daftar database di bawah yang paling cocok dengan nama produk yang diucapkan kasir.\n";
+        $prompt .= "3. **Kuantitas (qty)**: Perhatikan kata bilangan yang menyertai nama produk (misal: 'dua', '2', '3 pcs', 'satu renteng'). Jika tidak disebutkan angka kuantitasnya, asumsikan qty adalah 1.\n";
+        $prompt .= "4. **Produk Rentengan (Sachet Renteng)**: Jika kasir menyebutkan kata 'renteng' atau 'strip' (misal: 'kopi sachet satu renteng'), tentukan qty berdasarkan jumlah rentengnya (1 renteng = qty 1), jangan dihitung per sachet kecil!\n";
+        $prompt .= "5. Kembalikan respons dalam format JSON objek dengan key 'matches' berisi array, di mana setiap item memiliki key: 'matched_id' (integer), 'qty' (integer), 'confidence' (float), dan 'reason' (string) berisi penjelasan singkat mengapa produk ini dipilih.\n\n";
+        $prompt .= $productListStr;
+
+        try {
+            $models = [
+                'gemini-2.5-flash',
+                'gemini-2.0-flash',
+                'gemini-1.5-flash',
+                'gemini-1.5-pro'
+            ];
+
+            $response = null;
+            $lastErrorMessage = '';
+
+            foreach ($models as $model) {
+                try {
+                    $payload = [
+                        'contents' => [
+                            [
+                                'parts' => [
+                                    ['text' => $prompt]
+                                ]
+                            ]
+                        ],
+                        'generationConfig' => [
+                            'responseMimeType' => 'application/json',
+                            'responseSchema' => [
+                                'type' => 'OBJECT',
+                                'properties' => [
+                                    'matches' => [
+                                        'type' => 'ARRAY',
+                                        'description' => 'Daftar produk yang cocok hasil analisis perintah suara.',
+                                        'items' => [
+                                            'type' => 'OBJECT',
+                                            'properties' => [
+                                                'matched_id' => [
+                                                    'type' => 'INTEGER',
+                                                    'description' => 'ID produk yang cocok.'
+                                                ],
+                                                'qty' => [
+                                                    'type' => 'INTEGER',
+                                                    'description' => 'Jumlah kuantitas produk.'
+                                                ],
+                                                'confidence' => [
+                                                    'type' => 'NUMBER',
+                                                    'description' => 'Tingkat keyakinan kecocokan (0.0 s/d 1.0).'
+                                                ],
+                                                'reason' => [
+                                                    'type' => 'STRING',
+                                                    'description' => 'Alasan pencocokan.'
+                                                ]
+                                            ],
+                                            'required' => ['matched_id', 'qty', 'confidence', 'reason']
+                                        ]
+                                    ]
+                                ],
+                                'required' => ['matches']
+                            ]
+                        ]
+                    ];
+
+                    $response = \Illuminate\Support\Facades\Http::withHeaders([
+                        'Content-Type' => 'application/json',
+                    ])->post("https://generativelanguage.googleapis.com/v1beta/models/{$model}:generateContent?key={$this->apiKey}", $payload);
+
+                    if ($response->successful()) {
+                        break;
+                    } else {
+                        $errData = $response->json();
+                        $lastErrorMessage = $errData['error']['message'] ?? $response->body();
+                        Log::warning("Gemini text model {$model} failed: " . $lastErrorMessage);
+
+                        // Retry without responseSchema
+                        if (
+                            str_contains(strtolower($lastErrorMessage), 'schema') || 
+                            str_contains(strtolower($lastErrorMessage), 'not supported') || 
+                            str_contains(strtolower($lastErrorMessage), 'not found')
+                        ) {
+                            Log::info("Retrying Gemini text model {$model} without responseSchema...");
+                            unset($payload['generationConfig']['responseSchema']);
+                            
+                            $response = \Illuminate\Support\Facades\Http::withHeaders([
+                                'Content-Type' => 'application/json',
+                            ])->post("https://generativelanguage.googleapis.com/v1beta/models/{$model}:generateContent?key={$this->apiKey}", $payload);
+
+                            if ($response->successful()) {
+                                break;
+                            } else {
+                                $errData = $response->json();
+                                $lastErrorMessage = $errData['error']['message'] ?? $response->body();
+                                Log::warning("Gemini text model {$model} retry failed: " . $lastErrorMessage);
+                            }
+                        }
+                    }
+                } catch (\Exception $e) {
+                    $lastErrorMessage = $e->getMessage();
+                    Log::warning("Gemini text request for model {$model} failed: " . $lastErrorMessage);
+                }
+            }
+
+            $deepseekError = null;
+            if (!$response || !$response->successful()) {
+                // Gemini failed. Try DeepSeek text-only!
+                $deepseekApiKey = env('DEEPSEEK_API_KEY') ?? 'sk-44e4fa1b746e4b26ab9473dbab855873';
+                if (!empty($deepseekApiKey)) {
+                    Log::info('Gemini text failed. Attempting fallback to DeepSeek API (text-only)...');
+                    
+                    $deepseekPrompt = $prompt . "\n\nCRITICAL: Anda HARUS membalas HANYA dengan format JSON yang valid, tanpa markdown wrapper (seperti ```json), tanpa penjelasan teks tambahan di luar JSON. Format JSON harus berupa objek dengan key 'matches' berisi array, di mana setiap item memiliki key: 'matched_id' (integer), 'qty' (integer), 'confidence' (float), dan 'reason' (string).";
+                    
+                    try {
+                        $dsResponse = \Illuminate\Support\Facades\Http::withHeaders([
+                            'Authorization' => "Bearer {$deepseekApiKey}",
+                            'Content-Type' => 'application/json',
+                        ])->post('https://api.deepseek.com/v1/chat/completions', [
+                            'model' => 'deepseek-chat',
+                            'messages' => [
+                                [
+                                    'role' => 'user',
+                                    'content' => $deepseekPrompt
+                                ]
+                            ],
+                            'response_format' => [
+                                'type' => 'json_object'
+                            ]
+                        ]);
+
+                        if ($dsResponse->successful()) {
+                            $dsResult = $dsResponse->json();
+                            $textResponse = $dsResult['choices'][0]['message']['content'] ?? null;
+                            if (!empty($textResponse)) {
+                                $textResponse = preg_replace('/^```json\s*/i', '', $textResponse);
+                                $textResponse = preg_replace('/```$/', '', $textResponse);
+                                $textResponse = trim($textResponse);
+
+                                $parsedData = json_decode($textResponse, true);
+                                if (json_last_error() === JSON_ERROR_NONE && isset($parsedData['matches'])) {
+                                    Log::info('Successfully processed text command with DeepSeek API.');
+                                    return $parsedData;
+                                }
+                            }
+                        } else {
+                            $deepseekError = "Status " . $dsResponse->status() . ": " . $dsResponse->body();
+                            Log::error('DeepSeek text API failed: ' . $deepseekError);
+                        }
+                    } catch (\Exception $dsEx) {
+                        $deepseekError = $dsEx->getMessage();
+                        Log::error('DeepSeek text API request exception: ' . $deepseekError);
+                    }
+                }
+                
+                $errMsg = 'Gagal memproses suara/teks dengan Gemini. Error: ' . $lastErrorMessage;
+                if ($deepseekError) {
+                    $errMsg .= ' | DeepSeek Error: ' . $deepseekError;
+                }
+                throw new \Exception($errMsg);
+            }
+
+            $result = $response->json();
+            $textResponse = $result['candidates'][0]['content']['parts'][0]['text'] ?? null;
+
+            if (empty($textResponse)) {
+                return null;
+            }
+
+            $parsedData = json_decode($textResponse, true);
+            if (json_last_error() !== JSON_ERROR_NONE) {
+                return null;
+            }
+
+            return $parsedData;
+
+        } catch (\Exception $e) {
+            Log::error('GeminiService analyzeTextCommand Error: ' . $e->getMessage());
+            throw $e;
+        }
+    }
 }

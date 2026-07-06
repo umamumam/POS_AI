@@ -23,6 +23,8 @@ import {
     LogOut as LogOutIcon,
     LogIn as LogInIcon,
     ArrowRight,
+    Mic,
+    MicOff,
 } from '@lucide/vue';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -106,6 +108,23 @@ const scanMatch = ref<{
     }>;
 } | null>(null);
 const capturedImage = ref<string | null>(null);
+
+// Voice Input State
+const showVoiceDrawer = ref(false);
+const isListening = ref(false);
+const voiceText = ref('');
+const isVoiceAnalyzing = ref(false);
+const voiceError = ref('');
+const voiceMatchResult = ref<{
+    success: boolean;
+    matches?: Array<{
+        product: Product;
+        qty: number;
+        confidence: number;
+        reason: string;
+    }>;
+    message?: string;
+} | null>(null);
 
 // Camera State
 const videoRef = ref<HTMLVideoElement | null>(null);
@@ -455,6 +474,146 @@ const addMatchesToCart = () => {
     });
     scanMatch.value = null;
     capturedImage.value = null;
+};
+
+// Web Speech API Voice Input
+let recognition: any = null;
+
+const initSpeechRecognition = () => {
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+        voiceError.value = 'Browser Anda tidak mendukung input suara. Silakan ketik perintah secara manual di bawah ini.';
+        return;
+    }
+    
+    recognition = new SpeechRecognition();
+    recognition.lang = 'id-ID'; // Bahasa Indonesia
+    recognition.continuous = false;
+    recognition.interimResults = false;
+
+    recognition.onstart = () => {
+        isListening.value = true;
+        voiceError.value = '';
+    };
+
+    recognition.onresult = (event: any) => {
+        const transcript = event.results[0][0].transcript;
+        voiceText.value = (voiceText.value ? voiceText.value + ' ' : '') + transcript;
+    };
+
+    recognition.onerror = (event: any) => {
+        console.error('Speech recognition error:', event.error);
+        if (event.error === 'not-allowed') {
+            voiceError.value = 'Izin mikrofon ditolak. Harap izinkan akses mikrofon.';
+        } else {
+            voiceError.value = 'Gagal merekam suara: ' + event.error;
+        }
+        isListening.value = false;
+    };
+
+    recognition.onend = () => {
+        isListening.value = false;
+    };
+};
+
+const toggleListening = () => {
+    if (!recognition) {
+        initSpeechRecognition();
+    }
+    if (!recognition) return;
+
+    if (isListening.value) {
+        recognition.stop();
+    } else {
+        try {
+            recognition.start();
+        } catch (e) {
+            console.error('Recognition start error:', e);
+        }
+    }
+};
+
+const analyzeVoiceText = async () => {
+    if (!voiceText.value.trim() || isVoiceAnalyzing.value) return;
+
+    isVoiceAnalyzing.value = true;
+    voiceError.value = '';
+    voiceMatchResult.value = null;
+
+    try {
+        const token = getCsrfToken();
+        const response = await fetch('/api/pos/analyze-text', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                Accept: 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-XSRF-TOKEN': token || '',
+            },
+            body: JSON.stringify({ text: voiceText.value }),
+        });
+
+        const data = await response.json();
+
+        if (response.ok && data.success) {
+            voiceMatchResult.value = {
+                success: true,
+                matches: data.matches
+            };
+        } else {
+            voiceMatchResult.value = {
+                success: false,
+                message: data.message || 'Gagal mengenali perintah teks.'
+            };
+        }
+    } catch (err: any) {
+        console.error('Gagal menganalisis perintah suara/teks:', err);
+        voiceError.value = err.message || 'Terjadi kesalahan jaringan.';
+    } finally {
+        isVoiceAnalyzing.value = false;
+    }
+};
+
+const addVoiceMatchesToCart = () => {
+    if (!voiceMatchResult.value || !voiceMatchResult.value.matches) return;
+
+    voiceMatchResult.value.matches.forEach((match) => {
+        const product = match.product;
+        const qtyToAdd = match.qty;
+
+        const existingIndex = cart.value.findIndex(
+            (item) => item.product.id === product.id,
+        );
+
+        if (existingIndex > -1) {
+            const newQty = cart.value[existingIndex].qty + qtyToAdd;
+            if (newQty <= product.stok) {
+                cart.value[existingIndex].qty = newQty;
+            } else {
+                cart.value[existingIndex].qty = product.stok;
+                alert(`Stok untuk ${product.nama} terbatas. Hanya ditambahkan sampai batas stok (${product.stok}).`);
+            }
+        } else {
+            if (product.stok > 0) {
+                const finalQty = Math.min(qtyToAdd, product.stok);
+                cart.value.push({ product, qty: finalQty });
+                if (qtyToAdd > product.stok) {
+                    alert(`Stok untuk ${product.nama} terbatas. Hanya ditambahkan ${product.stok}.`);
+                }
+            } else {
+                alert(`Produk ${product.nama} habis.`);
+            }
+        }
+    });
+
+    // Close voice drawer and clear states
+    showVoiceDrawer.value = false;
+    voiceText.value = '';
+    voiceMatchResult.value = null;
+
+    // Auto redirect to Home and open the Cart Drawer
+    activeTab.value = 'home';
+    showCartDrawer.value = true;
 };
 
 // Checkout
@@ -814,12 +973,22 @@ onBeforeUnmount(() => {
                                 @click="captureAndAnalyze"
                                 :disabled="!cameraActive || isAnalyzing"
                                 class="flex h-16 w-16 items-center justify-center rounded-full border-4 border-neutral-200 bg-white shadow-md transition-all hover:border-neutral-300 focus:outline-none active:scale-95"
+                                title="Ambil Foto Produk"
                             >
                                 <div
                                     class="flex h-12 w-12 items-center justify-center rounded-full bg-primary text-white"
                                 >
                                     <Camera class="h-6 w-6" />
                                 </div>
+                            </button>
+
+                            <!-- Perintah Suara / Teks Trigger -->
+                            <button
+                                @click="showVoiceDrawer = true"
+                                class="rounded-full bg-secondary p-3 text-secondary-foreground shadow-xs transition-colors hover:bg-muted"
+                                title="Input Suara / Teks"
+                            >
+                                <Mic class="h-5 w-5" />
                             </button>
 
                             <!-- Refresh Camera connection -->
@@ -1541,6 +1710,160 @@ onBeforeUnmount(() => {
                             class="flex h-8 flex-1 items-center justify-center gap-1 bg-primary text-xs text-primary-foreground"
                         >
                             <Printer class="h-3.5 w-3.5" /> Cetak
+                        </Button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 7. DIALOG VOICE / TEXT COMMANDS (Mic Input Drawer) -->
+            <div
+                v-if="showVoiceDrawer"
+                class="absolute inset-0 z-40 flex animate-in items-end justify-center bg-black/60 p-0 fade-in"
+                @click.self="showVoiceDrawer = false"
+            >
+                <div
+                    class="flex max-h-[90%] w-full max-w-[450px] animate-in flex-col rounded-t-2xl bg-card shadow-xl duration-200 slide-in-from-bottom"
+                >
+                    <!-- Header -->
+                    <div
+                        class="flex shrink-0 items-center justify-between border-b bg-muted/20 px-4 py-3"
+                    >
+                        <div class="flex items-center gap-1.5 text-xs font-bold text-foreground">
+                            <Mic class="h-4.5 w-4.5 text-primary" />
+                            <span>Input Suara / Teks AI</span>
+                        </div>
+                        <button
+                            @click="showVoiceDrawer = false"
+                            class="rounded-full p-1 text-muted-foreground hover:bg-muted"
+                        >
+                            <X class="h-4.5 w-4.5" />
+                        </button>
+                    </div>
+
+                    <!-- Body -->
+                    <div class="flex-1 overflow-y-auto p-4 flex flex-col gap-4">
+                        <!-- Microphone Pulsating Button Area -->
+                        <div class="flex flex-col items-center justify-center py-6 border rounded-xl bg-muted/10 relative overflow-hidden">
+                            <!-- Visual Wave Animation while listening -->
+                            <div 
+                                v-if="isListening" 
+                                class="absolute inset-0 flex items-center justify-center gap-1 pointer-events-none opacity-20"
+                            >
+                                <div v-for="i in 8" :key="i" class="w-1.5 bg-primary rounded-full animate-bounce" :style="{ height: Math.floor(Math.random() * 40 + 10) + 'px', animationDelay: (i * 0.1) + 's' }"></div>
+                            </div>
+
+                            <button
+                                @click="toggleListening"
+                                :class="[
+                                    'flex h-20 w-20 items-center justify-center rounded-full shadow-md transition-all active:scale-95 focus:outline-none z-10',
+                                    isListening 
+                                        ? 'bg-red-500 text-white animate-pulse ring-8 ring-red-500/20' 
+                                        : 'bg-primary text-primary-foreground hover:bg-primary/95 ring-8 ring-primary/10'
+                                ]"
+                            >
+                                <Mic v-if="!isListening" class="h-8 w-8" />
+                                <MicOff v-else class="h-8 w-8 animate-bounce" />
+                            </button>
+
+                            <span class="mt-4 text-xs font-bold text-foreground z-10">
+                                {{ isListening ? 'Mendengarkan... (Silakan Bicara)' : 'Ketuk untuk Bicara' }}
+                            </span>
+                            <span class="mt-1 text-[10px] text-muted-foreground z-10">
+                                Contoh: "beli pop mie cup kecil dua, agar-agar swallow satu"
+                            </span>
+                        </div>
+
+                        <!-- Manual Text Input / Transcription Area -->
+                        <div class="flex flex-col gap-1.5">
+                            <label class="text-[10px] font-bold text-muted-foreground">TRANSKRIP / PERINTAH TEKS</label>
+                            <textarea
+                                v-model="voiceText"
+                                placeholder="Hasil rekaman suara akan muncul di sini atau Anda dapat mengetik perintah secara manual..."
+                                class="w-full h-24 p-3 text-xs font-medium border rounded-lg bg-background text-foreground focus:ring-1 focus:ring-primary focus:outline-none resize-none"
+                            ></textarea>
+                        </div>
+
+                        <!-- Error Message -->
+                        <div 
+                            v-if="voiceError" 
+                            class="flex items-center gap-1.5 rounded-lg border border-red-500/20 bg-red-500/5 p-2.5 text-xs text-red-600 font-medium"
+                        >
+                            <AlertCircle class="h-4 w-4 shrink-0" />
+                            <span>{{ voiceError }}</span>
+                        </div>
+
+                        <!-- AI Match Result Section inside Modal -->
+                        <div v-if="voiceMatchResult" class="flex flex-col gap-2.5">
+                            <!-- Success Match List -->
+                            <div 
+                                v-if="voiceMatchResult.success && voiceMatchResult.matches && voiceMatchResult.matches.length > 0"
+                                class="flex flex-col gap-2.5 rounded-xl border border-green-500/20 bg-green-500/5 p-3.5"
+                            >
+                                <span class="rounded bg-green-500/20 px-1.5 py-0.5 text-[9px] font-bold text-green-700 self-start">
+                                    {{ voiceMatchResult.matches.length }} Produk Teridentifikasi
+                                </span>
+                                
+                                <div class="flex flex-col gap-2 max-h-[150px] overflow-y-auto pr-1">
+                                    <div 
+                                        v-for="(match, idx) in voiceMatchResult.matches" 
+                                        :key="idx"
+                                        class="flex items-start justify-between gap-2 border-b border-green-500/10 pb-1.5 last:border-0 last:pb-0"
+                                    >
+                                        <div class="flex-1">
+                                            <h4 class="text-xs font-bold text-foreground">
+                                                {{ match.qty }}x {{ match.product.nama }}
+                                            </h4>
+                                            <p class="text-[10px] text-muted-foreground line-clamp-1 mt-0.5 leading-relaxed">
+                                                {{ match.reason }}
+                                            </p>
+                                        </div>
+                                        <div class="text-right shrink-0">
+                                            <span class="text-xs font-bold text-foreground block">
+                                                {{ formatRupiah(match.product.harga_jual * match.qty) }}
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Failed / No Product matches -->
+                            <div 
+                                v-else 
+                                class="flex items-center gap-1.5 rounded-lg border border-red-500/20 bg-red-500/5 p-3 text-xs text-red-700 font-medium"
+                            >
+                                <AlertCircle class="h-4.5 w-4.5 shrink-0" />
+                                <span>{{ voiceMatchResult.message || 'Tidak ada produk yang cocok dengan suara/teks.' }}</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Footer Action Buttons -->
+                    <div class="flex shrink-0 gap-2 border-t bg-muted/20 p-3">
+                        <Button
+                            @click="showVoiceDrawer = false"
+                            variant="outline"
+                            class="h-9 flex-1 text-xs"
+                        >
+                            Batal
+                        </Button>
+
+                        <!-- Show "Add to Cart" if success matches exist, otherwise show "Analyze" button -->
+                        <Button
+                            v-if="voiceMatchResult && voiceMatchResult.success && voiceMatchResult.matches && voiceMatchResult.matches.length > 0"
+                            @click="addVoiceMatchesToCart"
+                            class="flex h-9 flex-1 items-center justify-center gap-1.5 bg-green-600 hover:bg-green-700 text-xs font-bold text-white"
+                        >
+                            <ShoppingCart class="h-4 w-4" /> Masukkan Keranjang
+                        </Button>
+                        <Button
+                            v-else
+                            @click="analyzeVoiceText"
+                            :disabled="!voiceText.trim() || isVoiceAnalyzing"
+                            class="flex h-9 flex-1 items-center justify-center gap-1.5 bg-primary text-xs text-primary-foreground font-bold"
+                        >
+                            <Sparkles v-if="!isVoiceAnalyzing" class="h-3.5 w-3.5" />
+                            <span v-else class="h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent"></span>
+                            <span>{{ isVoiceAnalyzing ? 'Menganalisis...' : 'Analisis Teks' }}</span>
                         </Button>
                     </div>
                 </div>
