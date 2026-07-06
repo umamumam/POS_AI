@@ -13,7 +13,8 @@ import {
     AlertCircle, 
     X, 
     Printer,
-    Search
+    Search,
+    ListFilter
 } from '@lucide/vue';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -110,6 +111,12 @@ const cart = ref<CartItem[]>([]);
 const payAmount = ref<number | null>(null);
 const showReceiptModal = ref(false);
 const activeReceipt = ref<Receipt | null>(null);
+
+// Today's Transactions State
+const showTransactionsModal = ref(false);
+const todayTransactions = ref<Receipt[]>([]);
+const isLoadingTransactions = ref(false);
+const transactionSearchQuery = ref('');
 
 const cartTotal = computed(() => {
     return cart.value.reduce((total, item) => total + item.product.harga_jual * item.qty, 0);
@@ -303,6 +310,13 @@ const updateQty = (productId: number, change: number) => {
     }
 };
 
+const removeProductFromCart = (productId: number) => {
+    const index = cart.value.findIndex((item) => item.product.id === productId);
+    if (index > -1) {
+        cart.value.splice(index, 1);
+    }
+};
+
 const clearCart = () => {
     cart.value = [];
     payAmount.value = null;
@@ -310,6 +324,44 @@ const clearCart = () => {
 
 const setQuickPay = (amount: number) => {
     payAmount.value = amount;
+};
+
+// Fetch today's transactions list
+const fetchTodayTransactions = async () => {
+    isLoadingTransactions.value = true;
+    try {
+        const response = await fetch('/api/transactions/today');
+        const data = await response.json();
+        todayTransactions.value = data;
+    } catch (err) {
+        console.error('Gagal mengambil data transaksi hari ini:', err);
+    } finally {
+        isLoadingTransactions.value = false;
+    }
+};
+
+const filteredTransactions = computed(() => {
+    if (!transactionSearchQuery.value.trim()) return todayTransactions.value;
+    return todayTransactions.value.filter((t) => 
+        t.kode.toLowerCase().includes(transactionSearchQuery.value.toLowerCase())
+    );
+});
+
+const openTransactionsModal = () => {
+    showTransactionsModal.value = true;
+    fetchTodayTransactions();
+};
+
+const printTransactionReceipt = (receipt: Receipt) => {
+    activeReceipt.value = receipt;
+    setTimeout(() => {
+        printReceipt();
+    }, 150);
+};
+
+const viewReceiptDetail = (receipt: Receipt) => {
+    activeReceipt.value = receipt;
+    showReceiptModal.value = true;
 };
 
 const checkoutTransaction = async () => {
@@ -371,42 +423,51 @@ const printReceipt = () => {
         printWindow.document.write(`
             <html>
                 <head>
-                    <title>Cetak Struk</title>
+                    <title>Nota Transaksi #${activeReceipt.value?.kode || ''}</title>
                     <style>
-                        body {
-                            font-family: 'Courier New', Courier, monospace;
-                            padding: 10px;
-                            max-width: 280px;
-                            margin: 0 auto;
-                            color: #000;
-                            font-size: 10px;
-                            line-height: 1.4;
+                        @page {
+                            margin: 0;
                         }
-                        .text-center { text-align: center; }
-                        .text-right { text-align: right; }
-                        .font-bold { font-weight: bold; }
-                        .uppercase { text-transform: uppercase; }
-                        .tracking-wide { letter-spacing: 0.05em; }
-                        .mt-0.5 { margin-top: 2px; }
-                        .mt-1 { margin-top: 4px; }
-                        .mt-1.5 { margin-top: 6px; }
-                        .mt-3 { margin-top: 12px; }
-                        .my-2 { margin-top: 8px; margin-bottom: 8px; }
-                        .pb-1 { padding-bottom: 4px; }
-                        .pt-1 { padding-top: 4px; }
-                        .flex { display: flex; }
-                        .justify-between { justify-content: space-between; }
-                        .flex-col { flex-direction: column; }
-                        .gap-1 { gap: 4px; }
-                        .gap-1.5 { gap: 6px; }
-                        .w-\\[90px\\\] { width: 90px; }
-                        .inline-block { display: inline-block; }
-                        .border-b { border-bottom: 1px dashed #000; }
-                        .text-xs { font-size: 11px; }
-                        .text-\\[9px\\\] { font-size: 9px; }
-                        .text-\\[8px\\\] { font-size: 8px; }
-                        .text-black { color: #000; }
-                        .text-neutral-600 { color: #555; }
+                        body {
+                            font-family: 'Plus Jakarta Sans', DejaVu Sans, sans-serif;
+                            font-size: 13px;
+                            line-height: 1.2;
+                            padding: 20px;
+                            width: 200px;
+                            color: #000;
+                            margin: 0;
+                        }
+                        .header, .footer {
+                            text-align: center;
+                            margin-bottom: 5px;
+                        }
+                        .details, .summary {
+                            width: 100%;
+                            border-collapse: collapse;
+                            margin-bottom: 5px;
+                        }
+                        .details td, .details th {
+                            padding: 1px 0;
+                        }
+                        .text-left {
+                            text-align: left;
+                        }
+                        .text-right {
+                            text-align: right;
+                            white-space: nowrap;
+                        }
+                        .separator {
+                            border-bottom: 1px dashed #000;
+                            margin: 5px 0;
+                        }
+                        .summary td:last-child, .summary th:last-child {
+                            text-align: right;
+                            padding-right: 10px;
+                            white-space: nowrap;
+                        }
+                        .total-row {
+                            font-weight: bold;
+                        }
                     </style>
                 </head>
                 <body onload="window.print(); window.close();">
@@ -425,14 +486,25 @@ const printReceipt = () => {
     <div class="flex h-full flex-1 flex-col gap-4 overflow-x-auto rounded-xl p-4">
         <!-- Voice, Text, & Manual POS Transaction Panel -->
         <div class="relative flex flex-col rounded-xl border border-sidebar-border bg-card p-6 shadow-sm">
-            <div class="flex items-center gap-2.5 pb-4 border-b">
-                <div class="rounded-lg bg-orange-500/15 p-2 text-orange-600">
-                    <Mic class="h-5 w-5 animate-pulse" />
+            <div class="flex items-center justify-between pb-4 border-b flex-wrap gap-3">
+                <div class="flex items-center gap-2.5">
+                    <div class="rounded-lg bg-orange-500/15 p-2 text-orange-600">
+                        <Mic class="h-5 w-5 animate-pulse" />
+                    </div>
+                    <div>
+                        <h3 class="text-sm font-extrabold text-foreground">Transaksi Cepat via Suara, Teks, & Pencarian Manual AI</h3>
+                        <p class="text-xs text-muted-foreground">Gunakan input suara, ketik perintah teks, atau cari produk secara manual untuk memproses transaksi belanja secara cepat.</p>
+                    </div>
                 </div>
-                <div>
-                    <h3 class="text-sm font-extrabold text-foreground">Transaksi Cepat via Suara, Teks, & Pencarian Manual AI</h3>
-                    <p class="text-xs text-muted-foreground">Gunakan input suara, ketik perintah teks, atau cari produk secara manual untuk memproses transaksi belanja secara cepat.</p>
-                </div>
+                
+                <!-- Tombol Daftar Transaksi Hari Ini -->
+                <button
+                    @click="openTransactionsModal"
+                    class="flex items-center gap-1.5 rounded-lg border border-orange-500/30 bg-orange-500/5 px-3 py-1.5 text-xs font-bold text-orange-600 shadow-sm transition-all hover:bg-orange-500/10 active:scale-95"
+                >
+                    <ListFilter class="h-4 w-4" />
+                    <span>Daftar Transaksi</span>
+                </button>
             </div>
 
             <div class="mt-6 grid gap-6 lg:grid-cols-12">
@@ -594,13 +666,25 @@ const printReceipt = () => {
                                 <span class="text-[10px] text-muted-foreground">Harga: {{ formatRupiah(item.product.harga_jual) }} | Stok: {{ item.product.stok }}</span>
                             </div>
                             
-                            <div class="flex items-center gap-1 rounded-lg border bg-background p-1">
-                                <button @click="updateQty(item.product.id, -1)" class="rounded p-1 text-muted-foreground hover:bg-muted">
-                                    <Minus class="h-3 w-3" />
-                                </button>
-                                <span class="w-6 text-center text-xs font-bold text-foreground">{{ item.qty }}</span>
-                                <button @click="updateQty(item.product.id, 1)" class="rounded p-1 text-muted-foreground hover:bg-muted">
-                                    <Plus class="h-3 w-3" />
+                            <div class="flex items-center gap-3">
+                                <!-- Quantity Controls -->
+                                <div class="flex items-center gap-1 rounded-lg border bg-background p-1">
+                                    <button @click="updateQty(item.product.id, -1)" class="rounded p-1 text-muted-foreground hover:bg-muted">
+                                        <Minus class="h-3 w-3" />
+                                    </button>
+                                    <span class="w-6 text-center text-xs font-bold text-foreground">{{ item.qty }}</span>
+                                    <button @click="updateQty(item.product.id, 1)" class="rounded p-1 text-muted-foreground hover:bg-muted">
+                                        <Plus class="h-3 w-3" />
+                                    </button>
+                                </div>
+
+                                <!-- Tombol Hapus Explicit -->
+                                <button 
+                                    @click="removeProductFromCart(item.product.id)" 
+                                    class="rounded-lg p-1.5 text-red-500 hover:bg-red-50 hover:text-red-700 transition-colors"
+                                    title="Hapus Produk"
+                                >
+                                    <Trash2 class="h-4.5 w-4.5" />
                                 </button>
                             </div>
 
@@ -677,7 +761,7 @@ const printReceipt = () => {
         </div>
     </div>
 
-    <!-- DIALOG RECEIPT PRINT POPUP -->
+    <!-- DIALOG RECEIPT PRINT POPUP (Nota Format matches nota.blade.php exactly) -->
     <div
         v-if="showReceiptModal && activeReceipt"
         class="fixed inset-0 z-50 flex animate-in items-center justify-center bg-black/60 p-3 fade-in"
@@ -688,7 +772,7 @@ const printReceipt = () => {
             <div
                 class="flex shrink-0 items-center justify-between border-b bg-muted/20 p-3"
             >
-                <span class="text-xs font-bold">Transaksi Sukses</span>
+                <span class="text-xs font-bold text-foreground">Struk Nota Belanja</span>
                 <button
                     @click="showReceiptModal = false"
                     class="rounded-full p-1 text-muted-foreground hover:bg-muted"
@@ -699,92 +783,85 @@ const printReceipt = () => {
 
             <!-- Print Container -->
             <div
-                class="overflow-y-auto bg-white p-4 text-black"
+                class="overflow-y-auto bg-white p-4 text-black flex justify-center"
                 id="receipt-print-area-transaksi-ai"
             >
-                <div class="font-mono text-[10px]">
-                    <div
-                        class="text-center text-xs font-bold tracking-wide uppercase"
-                    >
-                        <div>Agen Sosis</div>
-                        <div class="mt-0.5">Lancar Manunggal</div>
-                    </div>
-                    <div
-                        class="mt-1.5 text-center text-[9px] leading-tight"
-                    >
-                        <p>Jl. Sosis No. 1, Lancar Jaya</p>
-                        <p class="mt-0.5">Telp: 0812-3456-7890</p>
+                <div style="font-family: 'Plus Jakarta Sans', DejaVu Sans, sans-serif; font-size: 13px; line-height: 1.2; width: 200px;">
+                    <!-- Header Info -->
+                    <div style="text-align: center; margin-bottom: 5px;">
+                        <h3 style="margin: 0 0 5px 0; font-size: 14px; font-weight: bold;">Agen Sosis <br> Lancar Manunggal</h3>
+                        <p style="margin: 0; font-size: 11px;">Jl. Raya Tayu-Jepara Km 7 <br> depan Kantor Pos Ngablak</p>
+                        <p style="margin: 0; font-size: 11px;">HP: 085201454015</p>
                     </div>
 
-                    <div
-                        class="my-2 border-b border-dashed border-black"
-                    ></div>
+                    <div style="border-bottom: 1px dashed #000; margin: 5px 0;"></div>
 
-                    <div class="flex flex-col gap-0.5 text-[9px]">
-                        <div class="flex justify-between">
-                            <span>KODE:</span>
-                            <span class="font-bold">{{ activeReceipt.kode }}</span>
-                        </div>
-                        <div class="flex justify-between">
-                            <span>TANGGAL:</span>
-                            <span>{{ formatDate(activeReceipt.tanggaltransaksi) }}</span>
-                        </div>
-                        <div class="flex justify-between">
-                            <span>KASIR:</span>
-                            <span>Admin Dashboard</span>
-                        </div>
-                    </div>
+                    <!-- Meta Info -->
+                    <table style="width: 100%; border-collapse: collapse; margin-bottom: 5px; font-size: 12px;">
+                        <tr>
+                            <td style="text-align: left; width: 90px; padding: 1px 0;">No Transaksi</td>
+                            <td style="text-align: left; padding: 1px 0;">: {{ activeReceipt.kode }}</td>
+                        </tr>
+                        <tr>
+                            <td style="text-align: left; padding: 1px 0;">Tanggal</td>
+                            <td style="text-align: left; padding: 1px 0;">: {{ formatDate(activeReceipt.tanggaltransaksi) }}</td>
+                        </tr>
+                    </table>
 
-                    <div
-                        class="my-2 border-b border-dashed border-black"
-                    ></div>
+                    <div style="border-bottom: 1px dashed #000; margin: 5px 0;"></div>
 
-                    <div class="flex flex-col gap-1.5">
-                        <div
-                            v-for="det in activeReceipt.details"
-                            :key="det.id"
-                            class="flex flex-col"
-                        >
-                            <span class="font-bold">{{ det.produk.nama }}</span>
-                            <div class="flex justify-between text-[9px] mt-0.5">
-                                <span>{{ formatNumber(det.harga) }} x {{ det.jumlah }}</span>
-                                <span>{{ formatNumber(det.subtotal) }}</span>
-                            </div>
-                        </div>
-                    </div>
+                    <!-- Products List Table matching nota.blade.php -->
+                    <table style="width: 100%; border-collapse: collapse; margin-bottom: 5px; font-size: 12px;">
+                        <thead>
+                            <tr>
+                                <th style="text-align: left; padding: 1px 0; font-weight: bold;">Produk</th>
+                                <th style="text-align: right; padding: 1px 0; font-weight: bold; white-space: nowrap;">Subtotal</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <template v-for="det in activeReceipt.details" :key="det.id">
+                                <tr>
+                                    <td style="text-align: left; vertical-align: top; padding: 1px 0;">
+                                        {{ det.produk.nama }}
+                                    </td>
+                                    <td rowspan="2" style="text-align: right; vertical-align: bottom; padding: 1px 0; white-space: nowrap;">
+                                        {{ formatNumber(det.subtotal) }}
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="text-align: left; font-size: 11px; padding-bottom: 5px; padding-top: 1px;">
+                                        {{ formatNumber(det.harga) }} x {{ det.jumlah }}
+                                    </td>
+                                </tr>
+                            </template>
+                        </tbody>
+                    </table>
 
-                    <div
-                        class="my-2 border-b border-dashed border-black"
-                    ></div>
+                    <div style="border-bottom: 1px dashed #000; margin: 5px 0;"></div>
 
-                    <div
-                        class="flex justify-between text-[9px] font-bold"
-                    >
-                        <span>TOTAL</span>
-                        <span>{{ formatNumber(activeReceipt.total) }}</span>
-                    </div>
-                    <div class="mt-1 flex justify-between text-[9px]">
-                        <span>BAYAR CASH</span>
-                        <span>{{ formatNumber(activeReceipt.bayar) }}</span>
-                    </div>
-                    <div class="mt-0.5 flex justify-between text-[9px]">
-                        <span>KEMBALIAN</span>
-                        <span>{{ formatNumber(activeReceipt.kembalian) }}</span>
-                    </div>
+                    <!-- Summary Table -->
+                    <table style="width: 100%; border-collapse: collapse; margin-bottom: 5px; font-size: 12px;">
+                        <tr>
+                            <td style="text-align: left; padding: 1px 0;">Total</td>
+                            <th style="text-align: right; padding: 1px 0; font-weight: bold;">: Rp {{ formatNumber(activeReceipt.total) }}</th>
+                        </tr>
+                        <tr>
+                            <td style="text-align: left; padding: 1px 0;">Bayar</td>
+                            <th style="text-align: right; padding: 1px 0; font-weight: bold;">: Rp {{ formatNumber(activeReceipt.bayar) }}</th>
+                        </tr>
+                        <tr>
+                            <td style="text-align: left; padding: 1px 0;">Kembalian</td>
+                            <th style="text-align: right; padding: 1px 0; font-weight: bold;">: Rp {{ formatNumber(activeReceipt.kembalian) }}</th>
+                        </tr>
+                    </table>
 
-                    <div
-                        class="my-2 border-b border-dashed border-black"
-                    ></div>
+                    <div style="border-bottom: 1px dashed #000; margin: 5px 0;"></div>
 
-                    <div
-                        class="mt-3 text-center text-[8px] leading-tight text-neutral-600"
-                    >
-                        <p class="text-[9px] font-bold text-black">
-                            --- TERIMA KASIH ---
-                        </p>
-                        <p class="mt-0.5">
-                            Barang yang sudah dibeli tidak dapat ditukar/dikembalikan.
-                        </p>
+                    <!-- Footer -->
+                    <div style="text-align: center; margin-top: 5px; font-size: 11px;">
+                        <p style="margin: 0; line-height: 1.3;">Terima kasih telah berbelanja! <br>
+                            Barang yang sudah dibeli <br>
+                            tidak dapat dikembalikan.</p>
                     </div>
                 </div>
             </div>
@@ -803,6 +880,122 @@ const printReceipt = () => {
                     class="flex h-8 flex-1 items-center justify-center gap-1 bg-primary text-xs text-primary-foreground"
                 >
                     <Printer class="h-3.5 w-3.5" /> Cetak
+                </Button>
+            </div>
+        </div>
+    </div>
+
+    <!-- DIALOG DAFTAR TRANSAKSI HARI INI MODAL -->
+    <div
+        v-if="showTransactionsModal"
+        class="fixed inset-0 z-50 flex animate-in items-center justify-center bg-black/60 p-4 fade-in"
+    >
+        <div
+            class="flex max-h-[90%] w-full max-w-[800px] animate-in flex-col rounded-xl bg-card shadow-xl duration-150 zoom-in-95"
+        >
+            <!-- Header -->
+            <div class="flex shrink-0 items-center justify-between border-b bg-muted/20 px-4 py-3">
+                <div class="flex items-center gap-2">
+                    <ListFilter class="h-5 w-5 text-orange-600" />
+                    <span class="text-sm font-extrabold text-foreground">Daftar Transaksi Hari Ini</span>
+                </div>
+                <button
+                    @click="showTransactionsModal = false"
+                    class="rounded-full p-1 text-muted-foreground hover:bg-muted"
+                >
+                    <X class="h-4.5 w-4.5" />
+                </button>
+            </div>
+
+            <!-- Body -->
+            <div class="flex-1 overflow-y-auto p-4 flex flex-col gap-4">
+                <!-- Search bar & entries info -->
+                <div class="flex flex-col md:flex-row md:items-center justify-between gap-3 bg-muted/10 p-3 border rounded-xl">
+                    <span class="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                        {{ filteredTransactions.length }} Transaksi Ditemukan
+                    </span>
+                    <div class="relative w-full md:w-64">
+                        <Search class="absolute top-2.5 left-3 h-4 w-4 text-muted-foreground" />
+                        <Input
+                            type="text"
+                            placeholder="Cari kode transaksi..."
+                            v-model="transactionSearchQuery"
+                            class="h-9 pl-9 text-xs focus-visible:ring-orange-500"
+                        />
+                    </div>
+                </div>
+
+                <!-- Transactions Table -->
+                <div class="overflow-x-auto border rounded-xl bg-background">
+                    <table class="w-full text-left text-xs border-collapse">
+                        <thead>
+                            <tr class="bg-muted/30 border-b text-muted-foreground font-bold uppercase tracking-wider text-[10px]">
+                                <th class="p-3">NO</th>
+                                <th class="p-3">KODE TRANSAKSI</th>
+                                <th class="p-3">TANGGAL</th>
+                                <th class="p-3">TOTAL</th>
+                                <th class="p-3">BAYAR</th>
+                                <th class="p-3">KEMBALIAN</th>
+                                <th class="p-3 text-center">ACTIONS</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr v-if="isLoadingTransactions" class="border-b last:border-0">
+                                <td colspan="7" class="p-8 text-center text-muted-foreground">
+                                    <span class="h-6 w-6 inline-block animate-spin rounded-full border-2 border-orange-500 border-t-transparent"></span>
+                                    <p class="mt-2 text-xs">Memuat data transaksi...</p>
+                                </td>
+                            </tr>
+                            <tr v-else-if="filteredTransactions.length === 0" class="border-b last:border-0">
+                                <td colspan="7" class="p-8 text-center text-muted-foreground font-semibold">
+                                    Tidak ada transaksi hari ini yang cocok.
+                                </td>
+                            </tr>
+                            <tr 
+                                v-else
+                                v-for="(trx, idx) in filteredTransactions" 
+                                :key="trx.id"
+                                class="border-b last:border-0 hover:bg-muted/5 transition-colors font-medium text-foreground"
+                            >
+                                <td class="p-3">{{ idx + 1 }}</td>
+                                <td class="p-3 font-bold text-orange-600">{{ trx.kode }}</td>
+                                <td class="p-3">{{ formatDate(trx.tanggaltransaksi) }}</td>
+                                <td class="p-3 font-extrabold">{{ formatRupiah(trx.total) }}</td>
+                                <td class="p-3">{{ formatRupiah(trx.bayar) }}</td>
+                                <td class="p-3 text-muted-foreground">{{ formatRupiah(trx.kembalian) }}</td>
+                                <td class="p-3">
+                                    <div class="flex items-center justify-center gap-1.5">
+                                        <!-- Detail Button -->
+                                        <button
+                                            @click="viewReceiptDetail(trx)"
+                                            class="flex h-7 w-7 items-center justify-center rounded-lg bg-blue-500 text-white hover:bg-blue-600 transition-colors shadow-sm"
+                                            title="Lihat Detail Nota"
+                                        >
+                                            <Search class="h-3.5 w-3.5" />
+                                        </button>
+                                        <!-- Print Button -->
+                                        <button
+                                            @click="printTransactionReceipt(trx)"
+                                            class="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-500 text-white hover:bg-emerald-600 transition-colors shadow-sm"
+                                            title="Cetak Ulang Nota"
+                                        >
+                                            <Printer class="h-3.5 w-3.5" />
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Footer -->
+            <div class="flex shrink-0 justify-end border-t bg-muted/20 p-3">
+                <Button
+                    @click="showTransactionsModal = false"
+                    class="h-8 text-xs font-bold"
+                >
+                    Tutup
                 </Button>
             </div>
         </div>

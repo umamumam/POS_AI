@@ -120,6 +120,19 @@ class POSController extends Controller
     }
 
     /**
+     * Get transactions made today.
+     */
+    public function getTodayTransactions()
+    {
+        $transactions = Transaksi::with(['details.produk'])
+            ->whereDate('tanggaltransaksi', today())
+            ->orderBy('id', 'desc')
+            ->get();
+            
+        return response()->json($transactions);
+    }
+
+    /**
      * Display the POS screen.
      */
     public function index(): Response

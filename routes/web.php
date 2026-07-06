@@ -15,6 +15,7 @@ Route::post('api/pos/checkout', [POSController::class, 'checkout'])->name('api.p
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('dashboard', [POSController::class, 'dashboard'])->name('dashboard');
     Route::get('transaksi-ai', [POSController::class, 'transaksiAi'])->name('transaksi_ai');
+    Route::get('api/transactions/today', [POSController::class, 'getTodayTransactions'])->name('api.transactions.today');
 });
 
 require __DIR__.'/settings.php';

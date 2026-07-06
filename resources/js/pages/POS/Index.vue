@@ -114,6 +114,23 @@ const formatRupiah = (value: number) => {
     }).format(value);
 };
 
+const formatNumber = (value: number) => {
+    return new Intl.NumberFormat('id-ID').format(value);
+};
+
+const formatDate = (dateStr: string) => {
+    if (!dateStr) return '';
+    const date = new Date(dateStr);
+    const months = [
+        'Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun',
+        'Jul', 'Agt', 'Sep', 'Okt', 'Nov', 'Des'
+    ];
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = months[date.getMonth()];
+    const year = date.getFullYear();
+    return `${day} ${month} ${year}`;
+};
+
 // Cart Computeds
 const cartTotal = computed(() => {
     return cart.value.reduce((total, item) => total + (item.product.harga_jual * item.qty), 0);
@@ -458,30 +475,55 @@ const printReceipt = () => {
     const printContent = document.getElementById('receipt-print-area');
     if (!printContent) return;
 
-    const originalContent = document.body.innerHTML;
     const printWindow = window.open('', '_blank');
     if (printWindow) {
         printWindow.document.write(`
             <html>
                 <head>
-                    <title>Print Receipt</title>
+                    <title>Nota Transaksi #${activeReceipt.value?.kode || ''}</title>
                     <style>
-                        body {
-                            font-family: 'Courier New', Courier, monospace;
-                            padding: 20px;
-                            max-width: 300px;
-                            margin: auto;
-                            color: #000;
-                            font-size: 12px;
+                        @page {
+                            margin: 0;
                         }
-                        .text-center { text-align: center; }
-                        .text-right { text-align: right; }
-                        .line { border-bottom: 1px dashed #000; margin: 10px 0; }
-                        .header { font-size: 16px; font-weight: bold; margin-bottom: 5px; }
-                        .flex { display: flex; justify-content: space-between; }
-                        .bold { font-weight: bold; }
-                        @media print {
-                            body { width: 100%; margin: 0; padding: 10px; }
+                        body {
+                            font-family: 'Plus Jakarta Sans', DejaVu Sans, sans-serif;
+                            font-size: 13px;
+                            line-height: 1.2;
+                            padding: 20px;
+                            width: 200px;
+                            color: #000;
+                            margin: 0;
+                        }
+                        .header, .footer {
+                            text-align: center;
+                            margin-bottom: 5px;
+                        }
+                        .details, .summary {
+                            width: 100%;
+                            border-collapse: collapse;
+                            margin-bottom: 5px;
+                        }
+                        .details td, .details th {
+                            padding: 1px 0;
+                        }
+                        .text-left {
+                            text-align: left;
+                        }
+                        .text-right {
+                            text-align: right;
+                            white-space: nowrap;
+                        }
+                        .separator {
+                            border-bottom: 1px dashed #000;
+                            margin: 5px 0;
+                        }
+                        .summary td:last-child, .summary th:last-child {
+                            text-align: right;
+                            padding-right: 10px;
+                            white-space: nowrap;
+                        }
+                        .total-row {
+                            font-weight: bold;
                         }
                     </style>
                 </head>
@@ -904,66 +946,84 @@ onBeforeUnmount(() => {
             </div>
 
             <!-- Receipt Print Area -->
-            <div class="p-6 bg-white overflow-y-auto max-h-[420px] text-black" id="receipt-print-area">
-                <div class="text-center font-mono text-xs">
-                    <h2 class="font-bold text-sm tracking-wide">LM KASIR POS</h2>
-                    <p class="text-[10px]">Depok, Jawa Barat, Indonesia</p>
-                    <p class="text-[10px] mt-0.5">Hp. 0812-3456-7890</p>
-                    <div class="border-b border-dashed border-black my-3"></div>
-
-                    <!-- Transaksi Meta -->
-                    <div class="flex justify-between text-[10px] text-left">
-                        <span>Kode: {{ activeReceipt.kode }}</span>
-                        <span>Date: {{ new Date(activeReceipt.tanggaltransaksi).toLocaleDateString('id-ID') }}</span>
+            <div class="p-6 bg-white overflow-y-auto max-h-[420px] text-black flex justify-center" id="receipt-print-area">
+                <div style="font-family: 'Plus Jakarta Sans', DejaVu Sans, sans-serif; font-size: 13px; line-height: 1.2; width: 200px;">
+                    <!-- Header Info -->
+                    <div style="text-align: center; margin-bottom: 5px;">
+                        <h3 style="margin: 0 0 5px 0; font-size: 14px; font-weight: bold;">Agen Sosis <br> Lancar Manunggal</h3>
+                        <p style="margin: 0; font-size: 11px;">Jl. Raya Tayu-Jepara Km 7 <br> depan Kantor Pos Ngablak</p>
+                        <p style="margin: 0; font-size: 11px;">HP: 085201454015</p>
                     </div>
-                    <div class="flex justify-between text-[10px] text-left mt-0.5">
-                        <span>Kasir: Umam</span>
-                        <span>Time: {{ new Date(activeReceipt.tanggaltransaksi).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) }}</span>
-                    </div>
-                    <div class="border-b border-dashed border-black my-3"></div>
 
-                    <!-- Items Table -->
-                    <table class="w-full text-left text-[10px]">
+                    <div style="border-bottom: 1px dashed #000; margin: 5px 0;"></div>
+
+                    <!-- Meta Info -->
+                    <table style="width: 100%; border-collapse: collapse; margin-bottom: 5px; font-size: 12px;">
+                        <tr>
+                            <td style="text-align: left; width: 90px; padding: 1px 0;">No Transaksi</td>
+                            <td style="text-align: left; padding: 1px 0;">: {{ activeReceipt.kode }}</td>
+                        </tr>
+                        <tr>
+                            <td style="text-align: left; padding: 1px 0;">Tanggal</td>
+                            <td style="text-align: left; padding: 1px 0;">: {{ formatDate(activeReceipt.tanggaltransaksi) }}</td>
+                        </tr>
+                    </table>
+
+                    <div style="border-bottom: 1px dashed #000; margin: 5px 0;"></div>
+
+                    <!-- Products List Table matching nota.blade.php -->
+                    <table style="width: 100%; border-collapse: collapse; margin-bottom: 5px; font-size: 12px;">
                         <thead>
-                            <tr class="font-bold">
-                                <th>Item</th>
-                                <th class="text-center">Qty</th>
-                                <th class="text-right">Total</th>
+                            <tr>
+                                <th style="text-align: left; padding: 1px 0; font-weight: bold;">Produk</th>
+                                <th style="text-align: right; padding: 1px 0; font-weight: bold; white-space: nowrap;">Subtotal</th>
                             </tr>
                         </thead>
                         <tbody>
-                            <tr v-for="det in activeReceipt.details" :key="det.id" class="align-top">
-                                <td class="py-1">
-                                    {{ det.produk.nama }}<br/>
-                                    <span class="text-[9px] text-neutral-600 font-mono">{{ det.produk.kode }}</span>
-                                    <span class="text-[9px] text-neutral-600"> @{{ formatRupiah(det.harga) }}</span>
-                                </td>
-                                <td class="text-center py-1 font-mono">{{ det.jumlah }}</td>
-                                <td class="text-right py-1 font-mono">{{ formatRupiah(det.subtotal) }}</td>
-                            </tr>
+                            <template v-for="det in activeReceipt.details" :key="det.id">
+                                <tr>
+                                    <td style="text-align: left; vertical-align: top; padding: 1px 0;">
+                                        {{ det.produk.nama }}
+                                    </td>
+                                    <td rowspan="2" style="text-align: right; vertical-align: bottom; padding: 1px 0; white-space: nowrap;">
+                                        {{ formatNumber(det.subtotal) }}
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="text-align: left; font-size: 11px; padding-bottom: 5px; padding-top: 1px;">
+                                        {{ formatNumber(det.harga) }} x {{ det.jumlah }}
+                                    </td>
+                                </tr>
+                            </template>
                         </tbody>
                     </table>
 
-                    <div class="border-b border-dashed border-black my-3"></div>
+                    <div style="border-bottom: 1px dashed #000; margin: 5px 0;"></div>
 
-                    <!-- Summary calculation -->
-                    <div class="flex justify-between font-bold">
-                        <span>TOTAL</span>
-                        <span class="font-mono">{{ formatRupiah(activeReceipt.total) }}</span>
-                    </div>
-                    <div class="flex justify-between mt-1 text-[10px]">
-                        <span>BAYAR CASH</span>
-                        <span class="font-mono">{{ formatRupiah(activeReceipt.bayar) }}</span>
-                    </div>
-                    <div class="flex justify-between mt-0.5 text-[10px]">
-                        <span>KEMBALIAN</span>
-                        <span class="font-mono">{{ formatRupiah(activeReceipt.kembalian) }}</span>
-                    </div>
+                    <!-- Summary Table -->
+                    <table style="width: 100%; border-collapse: collapse; margin-bottom: 5px; font-size: 12px;">
+                        <tr>
+                            <td style="text-align: left; padding: 1px 0;">Total</td>
+                            <th style="text-align: right; padding: 1px 0; font-weight: bold;">: Rp {{ formatNumber(activeReceipt.total) }}</th>
+                        </tr>
+                        <tr>
+                            <td style="text-align: left; padding: 1px 0;">Bayar</td>
+                            <th style="text-align: right; padding: 1px 0; font-weight: bold;">: Rp {{ formatNumber(activeReceipt.bayar) }}</th>
+                        </tr>
+                        <tr>
+                            <td style="text-align: left; padding: 1px 0;">Kembalian</td>
+                            <th style="text-align: right; padding: 1px 0; font-weight: bold;">: Rp {{ formatNumber(activeReceipt.kembalian) }}</th>
+                        </tr>
+                    </table>
 
-                    <div class="border-b border-dashed border-black my-3"></div>
+                    <div style="border-bottom: 1px dashed #000; margin: 5px 0;"></div>
 
-                    <p class="font-bold text-[10px] mt-4 tracking-wider">--- TERIMA KASIH ---</p>
-                    <p class="text-[8px] mt-0.5 text-neutral-500">Barang yang sudah dibeli tidak dapat ditukar/dikembalikan.</p>
+                    <!-- Footer -->
+                    <div style="text-align: center; margin-top: 5px; font-size: 11px;">
+                        <p style="margin: 0; line-height: 1.3;">Terima kasih telah berbelanja! <br>
+                            Barang yang sudah dibeli <br>
+                            tidak dapat dikembalikan.</p>
+                    </div>
                 </div>
             </div>
 
