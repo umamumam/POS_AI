@@ -340,6 +340,7 @@ const checkoutTransaction = async () => {
             },
             body: JSON.stringify({
                 items: itemsPayload,
+                total: cartTotal.value,
                 bayar: payAmount.value,
             }),
         });
