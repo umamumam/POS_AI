@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';
 import { Head, Link } from '@inertiajs/vue3';
 import PlaceholderPattern from '@/components/PlaceholderPattern.vue';
 import { dashboard } from '@/routes';
@@ -14,7 +14,8 @@ import {
     Trash2, 
     AlertCircle, 
     X, 
-    Printer 
+    Printer,
+    Search
 } from '@lucide/vue';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -122,10 +123,16 @@ const changeAmount = computed(() => {
 });
 
 // Voice / Text State
+const activeTabInput = ref<'voice' | 'manual'>('voice');
 const isListening = ref(false);
 const voiceText = ref('');
 const isVoiceAnalyzing = ref(false);
 const voiceError = ref('');
+
+// Manual Search State
+const manualSearchQuery = ref('');
+const manualProducts = ref<Product[]>([]);
+const isSearchingManual = ref(false);
 
 let recognition: any = null;
 
@@ -240,6 +247,53 @@ const analyzeVoiceText = async () => {
         isVoiceAnalyzing.value = false;
     }
 };
+
+// Fetch manual products from search API
+const fetchManualProducts = async () => {
+    isSearchingManual.value = true;
+    try {
+        const response = await fetch(`/api/products?q=${manualSearchQuery.value}`);
+        const data = await response.json();
+        manualProducts.value = data.data || [];
+    } catch (err) {
+        console.error('Gagal mengambil data produk manual:', err);
+    } finally {
+        isSearchingManual.value = false;
+    }
+};
+
+const addManualProductToCart = (product: Product) => {
+    const existingIndex = cart.value.findIndex(
+        (item) => item.product.id === product.id,
+    );
+
+    if (existingIndex > -1) {
+        const newQty = cart.value[existingIndex].qty + 1;
+        if (newQty <= product.stok) {
+            cart.value[existingIndex].qty = newQty;
+        } else {
+            alert(`Stok untuk ${product.nama} sudah mencapai batas maksimum.`);
+        }
+    } else {
+        if (product.stok > 0) {
+            cart.value.push({ product, qty: 1 });
+        } else {
+            alert(`Produk ${product.nama} habis.`);
+        }
+    }
+    // Auto reset search field on click
+    manualSearchQuery.value = '';
+};
+
+// Lifecycle
+onMounted(() => {
+    fetchManualProducts();
+});
+
+// Watch manual search input
+watch(manualSearchQuery, () => {
+    fetchManualProducts();
+});
 
 const updateQty = (productId: number, change: number) => {
     const index = cart.value.findIndex((item) => item.product.id === productId);
@@ -415,71 +469,143 @@ const printReceipt = () => {
             </div>
         </div>
 
-        <!-- Voice & Text POS Transaction Panel -->
+        <!-- Voice, Text, & Manual POS Transaction Panel -->
         <div class="relative flex flex-col rounded-xl border border-sidebar-border bg-card p-6 shadow-sm">
             <div class="flex items-center gap-2.5 pb-4 border-b">
                 <div class="rounded-lg bg-orange-500/15 p-2 text-orange-600">
                     <Mic class="h-5 w-5 animate-pulse" />
                 </div>
                 <div>
-                    <h3 class="text-sm font-extrabold text-foreground">Transaksi Cepat via Suara & Teks AI</h3>
-                    <p class="text-xs text-muted-foreground">Ucapkan daftar belanjaan atau ketik perintah teks untuk membuat transaksi secara instan.</p>
+                    <h3 class="text-sm font-extrabold text-foreground">Transaksi Cepat via Suara, Teks, & Pencarian Manual AI</h3>
+                    <p class="text-xs text-muted-foreground">Gunakan input suara, ketik perintah teks, atau cari produk secara manual untuk memproses transaksi belanja secara cepat.</p>
                 </div>
             </div>
 
             <div class="mt-6 grid gap-6 lg:grid-cols-12">
-                <!-- Left Column: Voice/Text Input and Recording -->
+                <!-- Left Column: Tabs for Voice/Text vs Manual Search -->
                 <div class="flex flex-col gap-4 lg:col-span-5">
-                    <div class="flex flex-col items-center justify-center py-8 border rounded-xl bg-muted/10 relative overflow-hidden">
-                        <!-- Wave Animation -->
-                        <div v-if="isListening" class="absolute inset-0 flex items-center justify-center gap-1 pointer-events-none opacity-20">
-                            <div v-for="i in 10" :key="i" class="w-1.5 bg-orange-500 rounded-full animate-bounce" :style="{ height: Math.floor(Math.random() * 40 + 10) + 'px', animationDelay: (i * 0.1) + 's' }"></div>
+                    <!-- Navigation Tabs -->
+                    <div class="grid grid-cols-2 gap-1 rounded-xl bg-muted p-1">
+                        <button
+                            @click="activeTabInput = 'voice'"
+                            :class="[
+                                'rounded-lg py-1.5 text-xs font-bold transition-all',
+                                activeTabInput === 'voice'
+                                    ? 'bg-background text-foreground shadow-sm'
+                                    : 'text-muted-foreground hover:bg-background/40'
+                            ]"
+                        >
+                            Input Suara / Teks AI
+                        </button>
+                        <button
+                            @click="activeTabInput = 'manual'"
+                            :class="[
+                                'rounded-lg py-1.5 text-xs font-bold transition-all',
+                                activeTabInput === 'manual'
+                                    ? 'bg-background text-foreground shadow-sm'
+                                    : 'text-muted-foreground hover:bg-background/40'
+                            ]"
+                        >
+                            Cari Manual
+                        </button>
+                    </div>
+
+                    <!-- TAB 1: VOICE / TEXT INPUT -->
+                    <div v-if="activeTabInput === 'voice'" class="flex flex-col gap-4">
+                        <div class="flex flex-col items-center justify-center py-6 border rounded-xl bg-muted/10 relative overflow-hidden">
+                            <!-- Wave Animation -->
+                            <div v-if="isListening" class="absolute inset-0 flex items-center justify-center gap-1 pointer-events-none opacity-20">
+                                <div v-for="i in 10" :key="i" class="w-1.5 bg-orange-500 rounded-full animate-bounce" :style="{ height: Math.floor(Math.random() * 40 + 10) + 'px', animationDelay: (i * 0.1) + 's' }"></div>
+                            </div>
+
+                            <button
+                                @click="toggleListening"
+                                :class="[
+                                    'flex h-20 w-20 items-center justify-center rounded-full shadow-lg transition-all active:scale-95 focus:outline-none z-10',
+                                    isListening 
+                                        ? 'bg-red-500 text-white animate-pulse ring-8 ring-red-500/20' 
+                                        : 'bg-orange-500 text-white hover:bg-orange-600 ring-8 ring-orange-500/10'
+                                ]"
+                            >
+                                <Mic v-if="!isListening" class="h-8 w-8" />
+                                <MicOff v-else class="h-8 w-8 animate-bounce" />
+                            </button>
+
+                            <span class="mt-4 text-xs font-bold text-foreground z-10">
+                                {{ isListening ? 'Mendengarkan... (Silakan Bicara)' : 'Ketuk & Mulai Bicara' }}
+                            </span>
+                            <span class="mt-1 text-[11px] text-muted-foreground z-10 text-center px-4">
+                                Contoh: "beli pop mie cup besar tiga sama sedap soto dua renteng"
+                            </span>
+                        </div>
+
+                        <div class="flex flex-col gap-1.5">
+                            <label class="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Perintah Suara / Teks Manual</label>
+                            <textarea
+                                v-model="voiceText"
+                                placeholder="Hasil suara atau tulis perintah secara manual di sini..."
+                                class="w-full h-28 p-3.5 text-xs font-medium border rounded-lg bg-background text-foreground focus:ring-1 focus:ring-orange-500 focus:outline-none resize-none"
+                            ></textarea>
+                        </div>
+
+                        <div v-if="voiceError" class="flex items-center gap-2 rounded-lg border border-red-500/20 bg-red-500/5 p-3 text-xs text-red-600 font-medium">
+                            <AlertCircle class="h-4 w-4 shrink-0" />
+                            <span>{{ voiceError }}</span>
                         </div>
 
                         <button
-                            @click="toggleListening"
-                            :class="[
-                                'flex h-24 w-24 items-center justify-center rounded-full shadow-lg transition-all active:scale-95 focus:outline-none z-10',
-                                isListening 
-                                    ? 'bg-red-500 text-white animate-pulse ring-8 ring-red-500/20' 
-                                    : 'bg-orange-500 text-white hover:bg-orange-600 ring-8 ring-orange-500/10'
-                            ]"
+                            @click="analyzeVoiceText"
+                            :disabled="!voiceText.trim() || isVoiceAnalyzing"
+                            class="flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-orange-600 text-xs font-bold text-white shadow-md shadow-orange-600/15 hover:bg-orange-700 disabled:opacity-50 active:scale-[0.98] transition-all"
                         >
-                            <Mic v-if="!isListening" class="h-10 w-10" />
-                            <MicOff v-else class="h-10 w-10 animate-bounce" />
+                            <Sparkles v-if="!isVoiceAnalyzing" class="h-4 w-4" />
+                            <span v-else class="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></span>
+                            <span>{{ isVoiceAnalyzing ? 'Menganalisis Perintah...' : 'Analisis & Masukkan Produk' }}</span>
                         </button>
-
-                        <span class="mt-4 text-xs font-bold text-foreground z-10">
-                            {{ isListening ? 'Mendengarkan... (Silakan Bicara)' : 'Ketuk & Mulai Bicara' }}
-                        </span>
-                        <span class="mt-1 text-[11px] text-muted-foreground z-10 text-center px-4">
-                            Contoh: "beli pop mie cup besar tiga sama sedap soto dua renteng"
-                        </span>
                     </div>
 
-                    <div class="flex flex-col gap-1.5">
-                        <label class="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Perintah Suara / Teks Manual</label>
-                        <textarea
-                            v-model="voiceText"
-                            placeholder="Hasil suara atau tulis perintah secara manual di sini..."
-                            class="w-full h-28 p-3.5 text-xs font-medium border rounded-lg bg-background text-foreground focus:ring-1 focus:ring-orange-500 focus:outline-none resize-none"
-                        ></textarea>
-                    </div>
+                    <!-- TAB 2: MANUAL SEARCH -->
+                    <div v-else class="flex flex-col gap-3">
+                        <div class="relative">
+                            <Search class="absolute top-2.5 left-3 h-4 w-4 text-muted-foreground" />
+                            <Input
+                                type="text"
+                                placeholder="Cari barcode / nama produk..."
+                                v-model="manualSearchQuery"
+                                class="h-9 pl-9 text-xs focus-visible:ring-orange-500"
+                            />
+                        </div>
 
-                    <div v-if="voiceError" class="flex items-center gap-2 rounded-lg border border-red-500/20 bg-red-500/5 p-3 text-xs text-red-600 font-medium">
-                        <AlertCircle class="h-4 w-4 shrink-0" />
-                        <span>{{ voiceError }}</span>
-                    </div>
+                        <!-- Manual Product Cards Grid -->
+                        <div class="flex-1 min-h-[300px] max-h-[360px] overflow-y-auto border rounded-xl bg-muted/5 p-3 flex flex-col gap-2">
+                            <div v-if="isSearchingManual" class="flex flex-col items-center justify-center h-full text-center py-10">
+                                <span class="h-6 w-6 animate-spin rounded-full border-2 border-orange-500 border-t-transparent"></span>
+                                <span class="text-xs text-muted-foreground mt-2">Mencari produk...</span>
+                            </div>
 
-                    <button
-                        @click="analyzeVoiceText"
-                        :disabled="!voiceText.trim() || isVoiceAnalyzing"
-                        class="flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-orange-600 text-xs font-bold text-white shadow-md shadow-orange-600/15 hover:bg-orange-700 disabled:opacity-50 active:scale-[0.98] transition-all"
-                    >
-                        <Sparkles v-if="!isVoiceAnalyzing" class="h-4 w-4" />
-                        <span v-else class="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></span>
-                        <span>{{ isVoiceAnalyzing ? 'Menganalisis Perintah...' : 'Analisis & Masukkan Produk' }}</span>
-                    </button>
+                            <div v-else-if="manualProducts.length === 0" class="flex flex-col items-center justify-center h-full text-center py-10">
+                                <ShoppingCart class="h-8 w-8 text-muted-foreground/30 mb-2" />
+                                <span class="text-xs text-muted-foreground font-semibold">Produk tidak ditemukan</span>
+                            </div>
+
+                            <div
+                                v-else
+                                v-for="prod in manualProducts"
+                                :key="prod.id"
+                                @click="addManualProductToCart(prod)"
+                                class="flex items-center justify-between p-2.5 border rounded-lg bg-background hover:border-orange-500 cursor-pointer active:scale-[0.99] transition-all"
+                            >
+                                <div class="flex-1 min-w-0 pr-2">
+                                    <h4 class="text-xs font-bold text-foreground truncate">{{ prod.nama }}</h4>
+                                    <p class="text-[9px] text-muted-foreground mt-0.5">{{ prod.kode }}</p>
+                                </div>
+                                <div class="text-right shrink-0">
+                                    <span class="text-xs font-extrabold text-foreground block">{{ formatRupiah(prod.harga_jual) }}</span>
+                                    <span class="text-[9px] text-muted-foreground mt-0.5 block">Stok: {{ prod.stok }}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Right Column: Cart, Review, & Checkout -->
@@ -500,7 +626,7 @@ const printReceipt = () => {
                         <div v-if="cart.length === 0" class="flex flex-col items-center justify-center h-full text-center py-8">
                             <ShoppingCart class="h-10 w-10 text-muted-foreground/35 mb-2" />
                             <span class="text-xs font-semibold text-muted-foreground">Keranjang masih kosong</span>
-                            <p class="text-[10px] text-muted-foreground/80 mt-1 max-w-[200px]">Silakan masukkan perintah suara/teks di kolom kiri untuk mendeteksi produk.</p>
+                            <p class="text-[10px] text-muted-foreground/80 mt-1 max-w-[200px]">Silakan masukkan perintah suara/teks di kolom kiri atau cari produk secara manual.</p>
                         </div>
                         
                         <div 
