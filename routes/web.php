@@ -13,7 +13,7 @@ Route::post('api/pos/analyze-text', [POSController::class, 'analyzeText'])->name
 Route::post('api/pos/checkout', [POSController::class, 'checkout'])->name('api.pos.checkout');
 
 Route::middleware(['auth', 'verified'])->group(function () {
-    Route::inertia('dashboard', 'Dashboard')->name('dashboard');
+    Route::get('dashboard', [POSController::class, 'dashboard'])->name('dashboard');
 });
 
 require __DIR__.'/settings.php';
