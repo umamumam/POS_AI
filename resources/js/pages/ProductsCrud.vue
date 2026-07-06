@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { ref, computed, watch } from 'vue';
 import { Head, router, useForm } from '@inertiajs/vue3';
 import { 
     Search, 
@@ -9,12 +9,10 @@ import {
     X, 
     AlertCircle, 
     Package, 
-    Tag, 
-    ArrowLeft, 
-    ArrowRight,
-    TrendingUp,
-    Boxes
+    ArrowUpDown,
+    CheckCircle
 } from '@lucide/vue';
+import Swal from 'sweetalert2';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 
@@ -56,6 +54,8 @@ const props = defineProps<{
     filters: {
         q: string | null;
         category_id: string | null;
+        low_stock: string | null;
+        per_page: number | null;
     };
 }>();
 
@@ -83,25 +83,34 @@ const formatRupiah = (value: number) => {
     }).format(value);
 };
 
-// Search & Filter States
+// Search & Filter States matching DataTables layout
 const searchQuery = ref(props.filters.q || '');
 const selectedCategory = ref(props.filters.category_id || '');
+const isLowStockOnly = ref(props.filters.low_stock === 'true');
+const entriesPerPage = ref(Number(props.filters.per_page) || 10);
 
 const handleFilter = () => {
     router.get('/products-crud', {
         q: searchQuery.value,
-        category_id: selectedCategory.value
+        category_id: selectedCategory.value,
+        low_stock: isLowStockOnly.value ? 'true' : 'false',
+        per_page: entriesPerPage.value
     }, {
         preserveState: true,
         replace: true
     });
 };
 
-// debounce filter trigger
-let filterTimeout: any = null;
+// watch selectors to trigger immediately
+watch([selectedCategory, entriesPerPage, isLowStockOnly], () => {
+    handleFilter();
+});
+
+// debounce search input
+let searchTimeout: any = null;
 const triggerDebouncedFilter = () => {
-    clearTimeout(filterTimeout);
-    filterTimeout = setTimeout(() => {
+    clearTimeout(searchTimeout);
+    searchTimeout = setTimeout(() => {
         handleFilter();
     }, 400);
 };
@@ -109,7 +118,6 @@ const triggerDebouncedFilter = () => {
 // Modal toggles
 const showCreateModal = ref(false);
 const showEditModal = ref(false);
-const showDeleteConfirm = ref(false);
 const selectedProduct = ref<Product | null>(null);
 
 // Forms
@@ -131,7 +139,7 @@ const editForm = useForm({
     kategori_id: '',
 });
 
-// Handlers
+// Handlers with SweetAlert2 integration
 const openCreateModal = () => {
     createForm.reset();
     createForm.clearErrors();
@@ -143,6 +151,13 @@ const submitCreate = () => {
         onSuccess: () => {
             showCreateModal.value = false;
             createForm.reset();
+            Swal.fire({
+                icon: 'success',
+                title: 'Berhasil!',
+                text: 'Produk baru telah berhasil disimpan.',
+                confirmButtonColor: '#ea580c',
+                timer: 2000
+            });
         }
     });
 };
@@ -165,20 +180,40 @@ const submitUpdate = () => {
         onSuccess: () => {
             showEditModal.value = false;
             editForm.reset();
+            Swal.fire({
+                icon: 'success',
+                title: 'Berhasil!',
+                text: 'Detail produk telah diperbarui.',
+                confirmButtonColor: '#ea580c',
+                timer: 2000
+            });
         }
     });
 };
 
-const openDeleteConfirm = (product: Product) => {
-    selectedProduct.value = product;
-    showDeleteConfirm.value = true;
-};
-
-const submitDelete = () => {
-    if (!selectedProduct.value) return;
-    router.delete(`/products-crud/${selectedProduct.value.id}`, {
-        onSuccess: () => {
-            showDeleteConfirm.value = false;
+const confirmDelete = (product: Product) => {
+    Swal.fire({
+        title: 'Hapus Produk?',
+        text: `Apakah Anda yakin ingin menghapus produk "${product.nama}"?`,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#ef4444',
+        cancelButtonColor: '#6b7280',
+        confirmButtonText: 'Ya, Hapus',
+        cancelButtonText: 'Batal'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            router.delete(`/products-crud/${product.id}`, {
+                onSuccess: () => {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Dihapus!',
+                        text: 'Produk berhasil dihapus.',
+                        confirmButtonColor: '#ea580c',
+                        timer: 2000
+                    });
+                }
+            });
         }
     });
 };
@@ -210,34 +245,76 @@ const submitDelete = () => {
                 </button>
             </div>
 
-            <!-- Filters & Search Bar -->
-            <div class="grid gap-3 md:grid-cols-3 bg-muted/10 p-3 border rounded-xl mt-2">
-                <div class="relative">
-                    <Search class="absolute top-2.5 left-3 h-4 w-4 text-muted-foreground" />
-                    <Input
-                        type="text"
-                        placeholder="Cari nama atau barcode..."
-                        v-model="searchQuery"
-                        @input="triggerDebouncedFilter"
-                        class="h-9 pl-9 text-xs focus-visible:ring-orange-500"
-                    />
+            <!-- Tab Buttons (Semua Produk vs Stok Rendah) -->
+            <div class="flex gap-1.5 border-b pb-3 mt-2">
+                <button
+                    @click="isLowStockOnly = false"
+                    :class="[
+                        'px-4 py-2 text-xs font-bold rounded-lg transition-all',
+                        !isLowStockOnly
+                            ? 'bg-orange-500/10 text-orange-600 border border-orange-500/20'
+                            : 'text-muted-foreground hover:bg-muted'
+                    ]"
+                >
+                    Semua Produk
+                </button>
+                <button
+                    @click="isLowStockOnly = true"
+                    :class="[
+                        'px-4 py-2 text-xs font-bold rounded-lg transition-all flex items-center gap-1.5',
+                        isLowStockOnly
+                            ? 'bg-red-500/10 text-red-600 border border-red-500/20 animate-pulse'
+                            : 'text-muted-foreground hover:bg-muted'
+                    ]"
+                >
+                    Stok Rendah (≤ 20)
+                </button>
+            </div>
+
+            <!-- DataTables Header Controls: Entries Selection & Align Search on the Right -->
+            <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mt-2 bg-muted/10 p-3 border rounded-xl">
+                <!-- Left: Show entries dropdown -->
+                <div class="flex items-center gap-2 text-xs font-medium text-muted-foreground">
+                    <span>Tampilkan</span>
+                    <select
+                        v-model="entriesPerPage"
+                        class="h-8 w-18 px-2 rounded-md border border-input bg-background text-xs text-foreground focus:ring-1 focus:ring-orange-500 focus:outline-none"
+                    >
+                        <option :value="10">10</option>
+                        <option :value="25">25</option>
+                        <option :value="50">50</option>
+                        <option :value="100">100</option>
+                    </select>
+                    <span>entri</span>
                 </div>
 
-                <div class="relative">
+                <!-- Right: Search query aligned on the right -->
+                <div class="flex items-center gap-2 w-full md:w-auto">
+                    <!-- Category Dropdown Filter -->
                     <select
                         v-model="selectedCategory"
-                        @change="handleFilter"
-                        class="w-full h-9 px-3 rounded-md border border-input bg-background text-xs text-foreground focus:ring-1 focus:ring-orange-500 focus:outline-none"
+                        class="h-9 px-3 rounded-md border border-input bg-background text-xs text-foreground focus:ring-1 focus:ring-orange-500 focus:outline-none min-w-[140px]"
                     >
                         <option value="">Semua Kategori</option>
                         <option v-for="cat in categories" :key="cat.id" :value="cat.id">
                             {{ cat.nama }}
                         </option>
                     </select>
+
+                    <div class="relative w-full md:w-64">
+                        <Search class="absolute top-2.5 left-3 h-4 w-4 text-muted-foreground" />
+                        <Input
+                            type="text"
+                            placeholder="Cari nama atau barcode..."
+                            v-model="searchQuery"
+                            @input="triggerDebouncedFilter"
+                            class="h-9 pl-9 text-xs focus-visible:ring-orange-500 w-full"
+                        />
+                    </div>
                 </div>
             </div>
 
-            <!-- Products List Table -->
+            <!-- Products List Table (DataTables styled) -->
             <div class="overflow-x-auto border rounded-xl bg-background mt-2">
                 <table class="w-full text-left text-xs border-collapse">
                     <thead>
@@ -254,7 +331,7 @@ const submitDelete = () => {
                     <tbody>
                         <tr v-if="products.data.length === 0" class="border-b last:border-0">
                             <td colspan="7" class="p-8 text-center text-muted-foreground font-semibold">
-                                Tidak ada produk ditemukan.
+                                Tidak ada data produk yang cocok.
                             </td>
                         </tr>
                         <tr 
@@ -275,7 +352,7 @@ const submitDelete = () => {
                             <td class="p-3 text-center">
                                 <span :class="[
                                     'rounded px-2 py-0.5 text-[10px] font-bold',
-                                    prod.stok <= 10 ? 'bg-red-500/10 text-red-600' : 'bg-green-500/10 text-green-600'
+                                    prod.stok <= 20 ? 'bg-red-500/10 text-red-600 animate-pulse' : 'bg-green-500/10 text-green-600'
                                 ]">
                                     {{ prod.stok }}
                                 </span>
@@ -290,7 +367,7 @@ const submitDelete = () => {
                                         <Edit class="h-3.5 w-3.5" />
                                     </button>
                                     <button
-                                        @click="openDeleteConfirm(prod)"
+                                        @click="confirmDelete(prod)"
                                         class="flex h-7 w-7 items-center justify-center rounded-lg bg-red-500 text-white hover:bg-red-600 transition-colors shadow-sm"
                                         title="Hapus Produk"
                                     >
@@ -303,20 +380,23 @@ const submitDelete = () => {
                 </table>
             </div>
 
-            <!-- Pagination Controls -->
-            <div v-if="products.last_page > 1" class="flex items-center justify-between border-t pt-4 mt-2">
-                <span class="text-[10px] font-bold text-muted-foreground uppercase">
-                    Halaman {{ products.current_page }} dari {{ products.last_page }} ({{ products.total }} produk)
+            <!-- DataTables Footer Controls: Info text on left, Page numbers link on right -->
+            <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-t pt-4 mt-2">
+                <!-- Info Text -->
+                <span class="text-xs font-semibold text-muted-foreground">
+                    Menampilkan {{ products.from || 0 }} sampai {{ products.to || 0 }} dari {{ products.total }} entri
+                    <span v-if="isLowStockOnly" class="text-red-500 font-bold ml-1">(Stok Rendah)</span>
                 </span>
                 
-                <div class="flex items-center gap-1.5">
+                <!-- Pagination buttons links aligned right -->
+                <div v-if="products.last_page > 1" class="flex items-center gap-1.5">
                     <Link
                         v-for="(link, lIdx) in products.links"
                         :key="lIdx"
                         v-show="link.url && link.label.includes('Previous') === false && link.label.includes('Next') === false"
                         :href="link.url || ''"
                         :class="[
-                            'px-2.5 py-1 text-xs font-bold rounded border transition-all',
+                            'px-3 py-1 text-xs font-bold rounded border transition-all',
                             link.active 
                                 ? 'bg-orange-600 border-orange-600 text-white shadow-md shadow-orange-600/10' 
                                 : 'bg-background hover:bg-muted text-muted-foreground'
@@ -475,28 +555,6 @@ const submitDelete = () => {
                     <Button type="submit" class="h-8 text-xs bg-orange-600 text-white hover:bg-orange-700" :disabled="editForm.processing">Simpan Perubahan</Button>
                 </div>
             </form>
-        </div>
-    </div>
-
-    <!-- DIALOG: HAPUS KONFIRMASI -->
-    <div
-        v-if="showDeleteConfirm"
-        class="fixed inset-0 z-50 flex animate-in items-center justify-center bg-black/60 p-4 fade-in"
-    >
-        <div
-            class="flex w-full max-w-[360px] animate-in flex-col rounded-xl bg-card shadow-xl duration-150 zoom-in-95 p-5 text-center"
-        >
-            <div class="flex h-12 w-12 items-center justify-center rounded-full bg-red-100 text-red-600 mx-auto">
-                <Trash2 class="h-6 w-6" />
-            </div>
-            <h4 class="text-sm font-bold text-foreground mt-4">Hapus Produk?</h4>
-            <p class="text-xs text-muted-foreground mt-2">
-                Apakah Anda yakin ingin menghapus produk <strong class="text-foreground">"{{ selectedProduct?.nama }}"</strong>? Tindakan ini tidak dapat dibatalkan.
-            </p>
-            <div class="flex justify-center gap-2 border-t pt-4 mt-5">
-                <Button variant="outline" @click="showDeleteConfirm = false" class="h-8 text-xs flex-1">Batal</Button>
-                <Button @click="submitDelete" class="h-8 text-xs bg-red-600 text-white hover:bg-red-700 flex-1">Ya, Hapus</Button>
-            </div>
         </div>
     </div>
 </template>

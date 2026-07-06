@@ -4,14 +4,21 @@ import { dashboard } from '@/routes';
 import { 
     ShoppingCart, 
     ArrowRight, 
-    Sparkles
+    Sparkles,
+    CalendarDays
 } from '@lucide/vue';
+import { Chart, registerables } from 'chart.js';
+import { onMounted, ref } from 'vue';
 
-defineProps<{
+Chart.register(...registerables);
+
+const props = defineProps<{
     incomeToday: number;
     dailyGrowth: number;
     incomeThisMonth: number;
     monthlyGrowth: number;
+    chartData: Array<{ label: string; sales: number }>;
+    monthlyReport: Array<{ label: string; sales: number }>;
     topProducts: Array<{ name: string; sold: number; revenue: number }>;
 }>();
 
@@ -34,6 +41,68 @@ const formatRupiah = (value: number) => {
         minimumFractionDigits: 0,
     }).format(value);
 };
+
+const chartCanvasRef = ref<HTMLCanvasElement | null>(null);
+
+onMounted(() => {
+    if (chartCanvasRef.value) {
+        new Chart(chartCanvasRef.value, {
+            type: 'line',
+            data: {
+                labels: props.chartData.map(d => d.label),
+                datasets: [
+                    {
+                        label: 'Penjualan (Rp)',
+                        data: props.chartData.map(d => d.sales),
+                        borderColor: '#ea580c',
+                        backgroundColor: 'rgba(234, 88, 12, 0.05)',
+                        fill: true,
+                        tension: 0.4,
+                        borderWidth: 2.5,
+                        pointBackgroundColor: '#ea580c',
+                        pointHoverRadius: 6,
+                        pointRadius: 3
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: false
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            callback: function(value) {
+                                return 'Rp ' + new Intl.NumberFormat('id-ID').format(Number(value));
+                            },
+                            font: {
+                                size: 10
+                            }
+                        },
+                        grid: {
+                            color: 'rgba(120, 120, 120, 0.08)'
+                        }
+                    },
+                    x: {
+                        ticks: {
+                            font: {
+                                size: 10
+                            }
+                        },
+                        grid: {
+                            display: false
+                        }
+                    }
+                }
+            }
+        });
+    }
+});
 </script>
 
 <template>
@@ -78,7 +147,7 @@ const formatRupiah = (value: number) => {
                 </div>
                 <div class="mt-4 flex flex-col gap-3">
                     <!-- Pendapatan Harian -->
-                    <div class="flex items-center justify-between border-b pb-2">
+                    <div class="flex items-center justify-between border-b pb-2 border-border/50">
                         <div>
                             <span class="text-[9px] font-bold text-muted-foreground uppercase">Hari Ini</span>
                             <h4 class="text-sm font-extrabold text-foreground">{{ formatRupiah(incomeToday) }}</h4>
@@ -131,6 +200,49 @@ const formatRupiah = (value: number) => {
                         </div>
                         <div class="text-right shrink-0 ml-2">
                             <span class="text-xs font-extrabold text-orange-600">{{ prod.sold }}x</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Bottom Row: Chart (8 cols) + Monthly Sales Report (4 cols) -->
+        <div class="grid gap-4 md:grid-cols-12 mt-2">
+            <!-- Daily Sales Chart -->
+            <div class="md:col-span-8 flex flex-col rounded-xl border border-sidebar-border bg-card p-5 shadow-sm min-h-[320px]">
+                <div class="flex items-center justify-between mb-4">
+                    <div>
+                        <h3 class="text-xs font-bold text-muted-foreground uppercase tracking-wider">Grafik Penjualan (7 Hari Terakhir)</h3>
+                        <p class="text-[11px] text-muted-foreground mt-0.5">Analisis pendapatan transaksi harian Anda.</p>
+                    </div>
+                </div>
+                <div class="flex-1 relative min-h-[220px]">
+                    <canvas ref="chartCanvasRef"></canvas>
+                </div>
+            </div>
+
+            <!-- Monthly Sales Report -->
+            <div class="md:col-span-4 flex flex-col rounded-xl border border-sidebar-border bg-card p-5 shadow-sm justify-between">
+                <div class="flex items-center justify-between mb-4">
+                    <div>
+                        <h3 class="text-xs font-bold text-muted-foreground uppercase tracking-wider">Laporan Penjualan Bulanan</h3>
+                        <p class="text-[11px] text-muted-foreground mt-0.5">Rekapitulasi omset per bulan.</p>
+                    </div>
+                    <span class="text-orange-500 bg-orange-500/10 p-1.5 rounded-lg">
+                        <CalendarDays class="h-4 w-4" />
+                    </span>
+                </div>
+                <div class="flex flex-col gap-2 overflow-y-auto max-h-[240px] flex-1">
+                    <div 
+                        v-for="(rep, idx) in monthlyReport" 
+                        :key="idx"
+                        class="flex items-center justify-between p-2.5 border rounded-lg bg-muted/5 hover:border-orange-500/30 transition-all"
+                    >
+                        <div>
+                            <h4 class="text-[11px] font-bold text-foreground">{{ rep.label }}</h4>
+                        </div>
+                        <div class="text-right">
+                            <span class="text-xs font-extrabold text-orange-600 block">{{ formatRupiah(rep.sales) }}</span>
                         </div>
                     </div>
                 </div>

@@ -72,6 +72,28 @@ class POSController extends Controller
             ];
         }
 
+        // 3b. Monthly Sales Report (Last 6 Months)
+        $monthsIndo = [
+            1 => 'Januari', 2 => 'Februari', 3 => 'Maret', 4 => 'April', 5 => 'Mei', 6 => 'Juni',
+            7 => 'Juli', 8 => 'Agustus', 9 => 'September', 10 => 'Oktober', 11 => 'November', 12 => 'Desember'
+        ];
+        $monthlyReport = [];
+        for ($i = 5; $i >= 0; $i--) {
+            $monthDate = now()->subMonths($i);
+            $mNum = (int)$monthDate->format('n');
+            $year = $monthDate->format('Y');
+            $monthLabel = $monthsIndo[$mNum] . ' ' . $year;
+            
+            $totalSales = Transaksi::whereYear('tanggaltransaksi', $monthDate->year)
+                ->whereMonth('tanggaltransaksi', $monthDate->month)
+                ->sum('total');
+                
+            $monthlyReport[] = [
+                'label' => $monthLabel,
+                'sales' => (int) $totalSales
+            ];
+        }
+
         // 4. Top Selling Products
         $topProductsRaw = DB::table('detail_transaksis')
             ->select('produk_id', DB::raw('SUM(jumlah) as total_sold'))
@@ -107,6 +129,7 @@ class POSController extends Controller
             'incomeThisMonth' => (int) $incomeThisMonth,
             'monthlyGrowth' => round($monthlyGrowth, 2),
             'chartData' => $chartData,
+            'monthlyReport' => $monthlyReport,
             'topProducts' => $topProducts
         ]);
     }

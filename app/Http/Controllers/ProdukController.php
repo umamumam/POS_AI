@@ -17,6 +17,8 @@ class ProdukController extends Controller
     {
         $query = $request->input('q');
         $categoryId = $request->input('category_id');
+        $lowStock = $request->input('low_stock');
+        $perPage = $request->input('per_page', 10);
 
         $productsQuery = Produk::with('kategori');
 
@@ -31,7 +33,11 @@ class ProdukController extends Controller
             $productsQuery->where('kategori_id', $categoryId);
         }
 
-        $products = $productsQuery->orderBy('nama', 'asc')->paginate(10)->withQueryString();
+        if ($lowStock === 'true') {
+            $productsQuery->where('stok', '<=', 20);
+        }
+
+        $products = $productsQuery->orderBy('nama', 'asc')->paginate($perPage)->withQueryString();
         $categories = Kategori::orderBy('nama', 'asc')->get();
 
         return Inertia::render('ProductsCrud', [
@@ -40,6 +46,8 @@ class ProdukController extends Controller
             'filters' => [
                 'q' => $query,
                 'category_id' => $categoryId,
+                'low_stock' => $lowStock,
+                'per_page' => $perPage,
             ]
         ]);
     }
