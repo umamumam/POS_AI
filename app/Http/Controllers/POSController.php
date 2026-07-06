@@ -94,6 +94,25 @@ class POSController extends Controller
             ];
         }
 
+        // Today's transaction count and average
+        $countToday = Transaksi::whereDate('tanggaltransaksi', $today)->count();
+        $countYesterday = Transaksi::whereDate('tanggaltransaksi', $yesterday)->count();
+        $countGrowth = 0;
+        if ($countYesterday > 0) {
+            $countGrowth = (($countToday - $countYesterday) / $countYesterday) * 100;
+        } else if ($countToday > 0) {
+            $countGrowth = 100;
+        }
+
+        $avgToday = $countToday > 0 ? (int) ($incomeToday / $countToday) : 0;
+        $avgYesterday = $countYesterday > 0 ? (int) ($incomeYesterday / $countYesterday) : 0;
+        $avgGrowth = 0;
+        if ($avgYesterday > 0) {
+            $avgGrowth = (($avgToday - $avgYesterday) / $avgYesterday) * 100;
+        } else if ($avgToday > 0) {
+            $avgGrowth = 100;
+        }
+
         // 4. Top Selling Products
         $topProductsRaw = DB::table('detail_transaksis')
             ->select('produk_id', DB::raw('SUM(jumlah) as total_sold'))
@@ -128,6 +147,10 @@ class POSController extends Controller
             'dailyGrowth' => round($dailyGrowth, 2),
             'incomeThisMonth' => (int) $incomeThisMonth,
             'monthlyGrowth' => round($monthlyGrowth, 2),
+            'countToday' => (int) $countToday,
+            'countGrowth' => round($countGrowth, 2),
+            'avgToday' => (int) $avgToday,
+            'avgGrowth' => round($avgGrowth, 2),
             'chartData' => $chartData,
             'monthlyReport' => $monthlyReport,
             'topProducts' => $topProducts
