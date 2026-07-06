@@ -16,14 +16,14 @@ defineProps<{
 
 defineOptions({
     layout: {
-        title: 'Create an account',
-        description: 'Enter your details below to create your account',
+        title: 'Daftar Akun Kasir Baru',
+        description: 'Silakan isi formulir di bawah ini untuk membuat akun kasir baru',
     },
 });
 </script>
 
 <template>
-    <Head title="Register" />
+    <Head title="Daftar" />
 
     <Form
         v-bind="store.form()"
@@ -33,7 +33,7 @@ defineOptions({
     >
         <div class="grid gap-6">
             <div class="grid gap-2">
-                <Label for="name">Name</Label>
+                <Label for="name" class="text-xs font-bold text-foreground">Nama Lengkap</Label>
                 <Input
                     id="name"
                     type="text"
@@ -42,13 +42,14 @@ defineOptions({
                     :tabindex="1"
                     autocomplete="name"
                     name="name"
-                    placeholder="Full name"
+                    placeholder="Nama lengkap Anda"
+                    class="h-10 text-xs focus-visible:ring-orange-500"
                 />
                 <InputError :message="errors.name" />
             </div>
 
             <div class="grid gap-2">
-                <Label for="email">Email address</Label>
+                <Label for="email" class="text-xs font-bold text-foreground">Alamat Email</Label>
                 <Input
                     id="email"
                     type="email"
@@ -56,58 +57,61 @@ defineOptions({
                     :tabindex="2"
                     autocomplete="email"
                     name="email"
-                    placeholder="email@example.com"
+                    placeholder="nama@email.com"
+                    class="h-10 text-xs focus-visible:ring-orange-500"
                 />
                 <InputError :message="errors.email" />
             </div>
 
             <div class="grid gap-2">
-                <Label for="password">Password</Label>
+                <Label for="password" class="text-xs font-bold text-foreground">Password</Label>
                 <PasswordInput
                     id="password"
                     required
                     :tabindex="3"
                     autocomplete="new-password"
                     name="password"
-                    placeholder="Password"
+                    placeholder="Masukkan password..."
                     :passwordrules="passwordRules"
+                    class="h-10 text-xs focus-visible:ring-orange-500"
                 />
                 <InputError :message="errors.password" />
             </div>
 
             <div class="grid gap-2">
-                <Label for="password_confirmation">Confirm password</Label>
+                <Label for="password_confirmation" class="text-xs font-bold text-foreground">Konfirmasi Password</Label>
                 <PasswordInput
                     id="password_confirmation"
                     required
                     :tabindex="4"
                     autocomplete="new-password"
                     name="password_confirmation"
-                    placeholder="Confirm password"
+                    placeholder="Ulangi password..."
                     :passwordrules="passwordRules"
+                    class="h-10 text-xs focus-visible:ring-orange-500"
                 />
                 <InputError :message="errors.password_confirmation" />
             </div>
 
             <Button
                 type="submit"
-                class="mt-2 w-full"
+                class="mt-2 w-full h-10 bg-gradient-to-r from-orange-600 to-amber-500 hover:from-orange-700 hover:to-amber-600 text-white font-bold transition-all duration-300 shadow-md shadow-orange-600/20 border-none rounded-lg text-xs active:scale-[0.98]"
                 tabindex="5"
                 :disabled="processing"
                 data-test="register-user-button"
             >
-                <Spinner v-if="processing" />
-                Create account
+                <Spinner v-if="processing" class="mr-1" />
+                Daftar Akun
             </Button>
         </div>
 
-        <div class="text-center text-sm text-muted-foreground">
-            Already have an account?
+        <div class="text-center text-xs text-muted-foreground">
+            Sudah memiliki akun?
             <TextLink
                 :href="login()"
-                class="underline underline-offset-4"
+                class="font-bold text-orange-600 hover:text-orange-700 transition-colors"
                 :tabindex="6"
-                >Log in</TextLink
+                >Masuk</TextLink
             >
         </div>
     </Form>

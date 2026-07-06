@@ -14,8 +14,8 @@ import { request } from '@/routes/password';
 
 defineOptions({
     layout: {
-        title: 'Log in to your account',
-        description: 'Enter your email and password below to log in',
+        title: 'Masuk ke Akun Kasir',
+        description: 'Silakan masukkan email dan password Anda untuk masuk ke sistem kasir',
     },
 });
 
@@ -26,7 +26,7 @@ defineProps<{
 </script>
 
 <template>
-    <Head title="Log in" />
+    <Head title="Masuk" />
 
     <div
         v-if="status"
@@ -43,7 +43,7 @@ defineProps<{
     >
         <div class="grid gap-6">
             <div class="grid gap-2">
-                <Label for="email">Email address</Label>
+                <Label for="email" class="text-xs font-bold text-foreground">Alamat Email</Label>
                 <Input
                     id="email"
                     type="email"
@@ -52,21 +52,22 @@ defineProps<{
                     autofocus
                     :tabindex="1"
                     autocomplete="email"
-                    placeholder="email@example.com"
+                    placeholder="nama@email.com"
+                    class="h-10 text-xs focus-visible:ring-orange-500"
                 />
                 <InputError :message="errors.email" />
             </div>
 
             <div class="grid gap-2">
                 <div class="flex items-center justify-between">
-                    <Label for="password">Password</Label>
+                    <Label for="password" class="text-xs font-bold text-foreground">Password</Label>
                     <TextLink
                         v-if="canResetPassword"
                         :href="request()"
-                        class="text-sm"
+                        class="text-xs font-bold text-orange-600 hover:text-orange-700 transition-colors"
                         :tabindex="5"
                     >
-                        Forgot your password?
+                        Lupa password?
                     </TextLink>
                 </div>
                 <PasswordInput
@@ -75,33 +76,34 @@ defineProps<{
                     required
                     :tabindex="2"
                     autocomplete="current-password"
-                    placeholder="Password"
+                    placeholder="Masukkan password..."
+                    class="h-10 text-xs focus-visible:ring-orange-500"
                 />
                 <InputError :message="errors.password" />
             </div>
 
             <div class="flex items-center justify-between">
-                <Label for="remember" class="flex items-center space-x-3">
-                    <Checkbox id="remember" name="remember" :tabindex="3" />
-                    <span>Remember me</span>
+                <Label for="remember" class="flex items-center space-x-3 cursor-pointer">
+                    <Checkbox id="remember" name="remember" :tabindex="3" class="data-[state=checked]:bg-orange-600 data-[state=checked]:border-orange-600" />
+                    <span class="text-xs font-medium text-muted-foreground">Ingat saya</span>
                 </Label>
             </div>
 
             <Button
                 type="submit"
-                class="mt-4 w-full"
+                class="mt-2 w-full h-10 bg-gradient-to-r from-orange-600 to-amber-500 hover:from-orange-700 hover:to-amber-600 text-white font-bold transition-all duration-300 shadow-md shadow-orange-600/20 border-none rounded-lg text-xs active:scale-[0.98]"
                 :tabindex="4"
                 :disabled="processing"
                 data-test="login-button"
             >
-                <Spinner v-if="processing" />
-                Log in
+                <Spinner v-if="processing" class="mr-1" />
+                Masuk
             </Button>
         </div>
 
-        <div class="text-center text-sm text-muted-foreground">
-            Don't have an account?
-            <TextLink :href="register()" :tabindex="5">Sign up</TextLink>
+        <div class="text-center text-xs text-muted-foreground">
+            Belum memiliki akun?
+            <TextLink :href="register()" :tabindex="5" class="font-bold text-orange-600 hover:text-orange-700 transition-colors">Daftar sekarang</TextLink>
         </div>
     </Form>
 </template>
