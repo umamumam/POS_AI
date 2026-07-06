@@ -327,14 +327,19 @@ const setQuickPay = (amount: number) => {
 };
 
 // Fetch today's transactions list
+const isViewingAllTransactions = ref(false);
+
 const fetchTodayTransactions = async () => {
     isLoadingTransactions.value = true;
     try {
-        const response = await fetch('/api/transactions/today');
+        const url = isViewingAllTransactions.value 
+            ? '/api/transactions/today?all=true' 
+            : '/api/transactions/today';
+        const response = await fetch(url);
         const data = await response.json();
         todayTransactions.value = data;
     } catch (err) {
-        console.error('Gagal mengambil data transaksi hari ini:', err);
+        console.error('Gagal mengambil data transaksi:', err);
     } finally {
         isLoadingTransactions.value = false;
     }
@@ -349,7 +354,8 @@ const filteredTransactions = computed(() => {
 
 const cameFromList = ref(false);
 
-const openTransactionsModal = () => {
+const openTransactionsModal = (viewAll = false) => {
+    isViewingAllTransactions.value = viewAll === true;
     cameFromList.value = false;
     showTransactionsModal.value = true;
     fetchTodayTransactions();
@@ -509,14 +515,26 @@ const printReceipt = () => {
                 </div>
             </div>
             
-            <!-- Tombol Daftar Transaksi Hari Ini -->
-            <button
-                @click="openTransactionsModal"
-                class="flex items-center gap-1.5 rounded-lg border border-orange-500/30 bg-orange-500/5 px-3 py-1.5 text-xs font-bold text-orange-600 shadow-sm transition-all hover:bg-orange-500/10 active:scale-95"
-            >
-                <ListFilter class="h-4 w-4" />
-                <span>Daftar Transaksi</span>
-            </button>
+            <!-- Action Buttons: Daftar Transaksi & Semua Transaksi -->
+            <div class="flex items-center gap-2 shrink-0 flex-wrap">
+                <!-- Tombol Daftar Transaksi Hari Ini -->
+                <button
+                    @click="openTransactionsModal(false)"
+                    class="flex items-center gap-1.5 rounded-lg border border-orange-500/30 bg-orange-500/5 px-3 py-1.5 text-xs font-bold text-orange-600 shadow-sm transition-all hover:bg-orange-500/10 active:scale-95"
+                >
+                    <ListFilter class="h-4 w-4" />
+                    <span>Daftar Transaksi</span>
+                </button>
+
+                <!-- Tombol Semua Transaksi -->
+                <button
+                    @click="openTransactionsModal(true)"
+                    class="flex items-center gap-1.5 rounded-lg border border-neutral-200 bg-neutral-55 px-3 py-1.5 text-xs font-bold text-[#171717] dark:bg-zinc-800 dark:border-zinc-700 dark:text-white shadow-xs transition-all hover:bg-neutral-100 active:scale-95"
+                >
+                    <ListFilter class="h-4 w-4 text-neutral-500" />
+                    <span>Semua Transaksi</span>
+                </button>
+            </div>
         </div>
 
         <div class="grid gap-6 lg:grid-cols-12 mt-2">
@@ -908,7 +926,9 @@ const printReceipt = () => {
             <div class="flex shrink-0 items-center justify-between border-b bg-muted/20 px-4 py-3">
                 <div class="flex items-center gap-2">
                     <ListFilter class="h-5 w-5 text-orange-600" />
-                    <span class="text-sm font-extrabold text-foreground">Daftar Transaksi Hari Ini</span>
+                    <span class="text-sm font-extrabold text-foreground">
+                        {{ isViewingAllTransactions ? 'Daftar Semua Transaksi' : 'Daftar Transaksi Hari Ini' }}
+                    </span>
                 </div>
                 <button
                     @click="showTransactionsModal = false"
