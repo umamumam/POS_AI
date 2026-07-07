@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue';
+import { ref, computed, onMounted, watch, nextTick } from 'vue';
 import { Head, Link } from '@inertiajs/vue3';
 import {
     ShoppingCart,
@@ -155,7 +155,94 @@ const voiceError = ref('');
 const manualSearchQuery = ref('');
 const manualProducts = ref<Product[]>([]);
 const isSearchingManual = ref(false);
+// Cart and Edit Cart Containers for Auto-scrolling
+const cartListContainer = ref<HTMLElement | null>(null);
+const editCartListContainer = ref<HTMLElement | null>(null);
 
+const scrollToBottom = () => {
+    nextTick(() => {
+        if (cartListContainer.value) {
+            cartListContainer.value.scrollTo({
+                top: cartListContainer.value.scrollHeight,
+                behavior: 'smooth',
+            });
+        }
+    });
+};
+
+const scrollEditToBottom = () => {
+    nextTick(() => {
+        if (editCartListContainer.value) {
+            editCartListContainer.value.scrollTo({
+                top: editCartListContainer.value.scrollHeight,
+                behavior: 'smooth',
+            });
+        }
+    });
+};
+
+// Quantity Direct Input Handlers
+const handleQtyInput = (item: CartItem, event: any) => {
+    const rawVal = event.target.value;
+    if (rawVal === '') return;
+    
+    let val = parseInt(rawVal);
+    if (isNaN(val) || val < 1) {
+        val = 1;
+    }
+    if (val > item.product.stok) {
+        val = item.product.stok;
+        Swal.fire({
+            icon: 'warning',
+            title: 'Stok Terbatas',
+            text: `Stok maksimum untuk ${item.product.nama} adalah ${item.product.stok}.`,
+            confirmButtonColor: '#ea580c',
+            timer: 2500,
+        });
+    }
+    item.qty = val;
+    event.target.value = val;
+};
+
+const handleQtyBlur = (item: CartItem, event: any) => {
+    let val = parseInt(event.target.value);
+    if (isNaN(val) || val < 1) {
+        val = 1;
+    }
+    item.qty = val;
+    event.target.value = val;
+};
+
+const handleEditQtyInput = (item: { product: Product; qty: number; harga: number }, event: any) => {
+    const rawVal = event.target.value;
+    if (rawVal === '') return;
+    
+    let val = parseInt(rawVal);
+    if (isNaN(val) || val < 1) {
+        val = 1;
+    }
+    if (val > item.product.stok) {
+        val = item.product.stok;
+        Swal.fire({
+            icon: 'warning',
+            title: 'Stok Terbatas',
+            text: `Stok maksimum untuk ${item.product.nama} adalah ${item.product.stok}.`,
+            confirmButtonColor: '#ea580c',
+            timer: 2500,
+        });
+    }
+    item.qty = val;
+    event.target.value = val;
+};
+
+const handleEditQtyBlur = (item: { product: Product; qty: number; harga: number }, event: any) => {
+    let val = parseInt(event.target.value);
+    if (isNaN(val) || val < 1) {
+        val = 1;
+    }
+    item.qty = val;
+    event.target.value = val;
+};
 let recognition: any = null;
 
 const initSpeechRecognition = () => {
@@ -262,6 +349,7 @@ const analyzeVoiceText = async () => {
                 }
             });
             voiceText.value = '';
+            scrollToBottom();
         } else {
             voiceError.value =
                 data.message ||
@@ -307,6 +395,7 @@ const addManualProductToCart = (product: Product) => {
     } else {
         if (product.stok > 0) {
             cart.value.push({ product, qty: 1 });
+            scrollToBottom();
         } else {
             Swal.fire({
                 icon: 'error',
@@ -488,6 +577,7 @@ const addProductToEditCart = (prod: Product) => {
                 qty: 1,
                 harga: prod.harga_jual,
             });
+            scrollEditToBottom();
         } else {
             Swal.fire({
                 icon: 'error',
@@ -1020,6 +1110,7 @@ const printReceipt = () => {
 
                 <!-- Cart Items List -->
                 <div
+                    ref="cartListContainer"
                     class="flex max-h-[300px] min-h-[180px] flex-1 flex-col gap-3 overflow-y-auto rounded-xl border bg-muted/5 p-4"
                 >
                     <div
@@ -1069,10 +1160,15 @@ const printReceipt = () => {
                                 >
                                     <Minus class="h-3 w-3" />
                                 </button>
-                                <span
-                                    class="w-6 text-center text-xs font-bold text-foreground"
-                                    >{{ item.qty }}</span
-                                >
+                                <input
+                                    type="number"
+                                    :value="item.qty"
+                                    @input="handleQtyInput(item, $event)"
+                                    @blur="handleQtyBlur(item, $event)"
+                                    class="w-8 border-0 bg-transparent p-0 text-center text-xs font-bold text-foreground focus:ring-0 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                    min="1"
+                                    :max="item.product.stok"
+                                />
                                 <button
                                     @click="updateQty(item.product.id, 1)"
                                     class="rounded p-1 text-muted-foreground hover:bg-muted"
@@ -1750,6 +1846,7 @@ const printReceipt = () => {
                         >Item Transaksi</label
                     >
                     <div
+                        ref="editCartListContainer"
                         class="max-h-60 overflow-hidden overflow-y-auto rounded-xl border bg-background"
                     >
                         <table class="w-full border-collapse text-left text-xs">
@@ -1799,10 +1896,15 @@ const printReceipt = () => {
                                             >
                                                 <Minus class="h-3 w-3" />
                                             </button>
-                                            <span
-                                                class="w-6 text-center font-bold"
-                                                >{{ item.qty }}</span
-                                            >
+                                            <input
+                                                type="number"
+                                                :value="item.qty"
+                                                @input="handleEditQtyInput(item, $event)"
+                                                @blur="handleEditQtyBlur(item, $event)"
+                                                class="w-8 border-0 bg-transparent p-0 text-center text-xs font-bold text-foreground focus:ring-0 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                                min="1"
+                                                :max="item.product.stok"
+                                            />
                                             <button
                                                 type="button"
                                                 @click="
