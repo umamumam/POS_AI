@@ -17,7 +17,21 @@ Route::get('debug-wa', function () {
     $logs = 'Log file not found.';
     if (file_exists($logPath)) {
         $logContent = file_get_contents($logPath);
-        $logs = strlen($logContent) > 3000 ? substr($logContent, -3000) : $logContent;
+        $logsTail = strlen($logContent) > 15000 ? substr($logContent, -15000) : $logContent;
+        
+        $lines = explode("\n", $logsTail);
+        $errorLines = [];
+        foreach ($lines as $line) {
+            if (str_contains($line, '.ERROR:') || str_contains($line, 'Exception')) {
+                $errorLines[] = $line;
+            }
+        }
+        
+        if (!empty($errorLines)) {
+            $logs = "=== RECENT ERROR MESSAGES ===\n" . implode("\n", array_slice(array_reverse($errorLines), 0, 5)) . "\n\n=== LOG TAIL ===\n" . substr($logsTail, -2500);
+        } else {
+            $logs = substr($logsTail, -2500);
+        }
     }
     
     return response()->json([
