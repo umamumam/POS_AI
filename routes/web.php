@@ -13,9 +13,17 @@ Route::post('webhooks/fonnte', [WebhookController::class, 'handleFonnte'])->name
 
 // Temporary Debug Route for WhatsApp
 Route::get('debug-wa', function () {
+    $logPath = storage_path('logs/laravel.log');
+    $logs = 'Log file not found.';
+    if (file_exists($logPath)) {
+        $logContent = file_get_contents($logPath);
+        $logs = strlen($logContent) > 3000 ? substr($logContent, -3000) : $logContent;
+    }
+    
     return response()->json([
         'config' => \App\Models\WaConfig::first(),
         'notifications' => \App\Models\WaNotification::latest()->take(10)->get(),
+        'logs' => $logs,
     ]);
 });
 
