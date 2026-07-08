@@ -3,8 +3,13 @@
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\POSController;
 use App\Http\Controllers\ProdukController;
+use App\Http\Controllers\WebhookController;
+use App\Http\Controllers\WaNotificationController;
 
 Route::get('/', [POSController::class, 'index'])->name('home');
+
+// Webhook Fonnte (tidak perlu auth, dikecualikan dari CSRF di bootstrap/app.php)
+Route::post('webhooks/fonnte', [WebhookController::class, 'handleFonnte'])->name('webhooks.fonnte');
 
 // POS Routes (Bisa diakses langsung tanpa login)
 Route::get('pos', [POSController::class, 'index'])->name('pos.index');
@@ -19,6 +24,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('api/transactions/today', [POSController::class, 'getTodayTransactions'])->name('api.transactions.today');
     Route::put('api/transactions/{transaction}', [POSController::class, 'updateTransaction'])->name('api.transactions.update');
     Route::resource('products-crud', ProdukController::class)->only(['index', 'store', 'update', 'destroy']);
+    
+    // WhatsApp Notifications API
+    Route::get('api/wa-notifications/unread', [WaNotificationController::class, 'unread'])->name('api.wa_notifications.unread');
+    Route::post('api/wa-notifications/mark-read', [WaNotificationController::class, 'markRead'])->name('api.wa_notifications.mark_read');
 });
 
 require __DIR__.'/settings.php';

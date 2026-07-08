@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Settings\ProfileController;
 use App\Http\Controllers\Settings\SecurityController;
+use App\Http\Controllers\Settings\WaConfigController;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware(['auth'])->group(function () {
@@ -22,4 +23,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('user-password.update');
 
     Route::inertia('settings/appearance', 'settings/Appearance')->name('appearance.edit');
+
+    Route::get('settings/whatsapp', [WaConfigController::class, 'edit'])->name('settings.whatsapp.edit');
+    Route::patch('settings/whatsapp', [WaConfigController::class, 'update'])->name('settings.whatsapp.update');
 });
