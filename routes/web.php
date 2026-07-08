@@ -11,6 +11,14 @@ Route::get('/', [POSController::class, 'index'])->name('home');
 // Webhook Fonnte (tidak perlu auth, dikecualikan dari CSRF di bootstrap/app.php)
 Route::post('webhooks/fonnte', [WebhookController::class, 'handleFonnte'])->name('webhooks.fonnte');
 
+// Temporary Debug Route for WhatsApp
+Route::get('debug-wa', function () {
+    return response()->json([
+        'config' => \App\Models\WaConfig::first(),
+        'notifications' => \App\Models\WaNotification::latest()->take(10)->get(),
+    ]);
+});
+
 // POS Routes (Bisa diakses langsung tanpa login)
 Route::get('pos', [POSController::class, 'index'])->name('pos.index');
 Route::get('api/products', [POSController::class, 'search'])->name('api.products.search');
