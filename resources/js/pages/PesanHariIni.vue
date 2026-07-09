@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue';
 import { Head, usePage } from '@inertiajs/vue3';
-import AppLayout from '@/layouts/AppLayout.vue';
 import { MessageCircle, Search, Send, Check, CheckCheck, Loader2 } from '@lucide/vue';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -185,8 +184,7 @@ onUnmounted(() => {
 <template>
     <Head title="WhatsApp Pesan Hari Ini" />
     
-    <AppLayout>
-        <div class="flex h-[calc(100vh-4.5rem)] overflow-hidden rounded-xl border border-neutral-200/80 dark:border-neutral-800 bg-white dark:bg-neutral-950 shadow-xs">
+    <div class="flex h-[calc(100vh-4.5rem)] overflow-hidden rounded-xl border border-neutral-200/80 dark:border-neutral-800 bg-white dark:bg-neutral-950 shadow-xs">
             
             <!-- Left Sidebar: Senders List -->
             <div class="w-80 flex flex-col border-r border-neutral-200/80 dark:border-neutral-800 shrink-0 bg-neutral-50/50 dark:bg-neutral-900/10">
@@ -337,5 +335,4 @@ onUnmounted(() => {
             </div>
             
         </div>
-    </AppLayout>
 </template>
