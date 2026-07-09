@@ -184,7 +184,7 @@ onUnmounted(() => {
 <template>
     <Head title="WhatsApp Pesan Hari Ini" />
     
-    <div class="flex h-[calc(100vh-10rem)] min-h-[500px] overflow-hidden rounded-xl border border-neutral-200/80 dark:border-neutral-800 bg-white dark:bg-neutral-950 shadow-md">
+    <div class="flex h-[calc(100vh-12.5rem)] min-h-[350px] overflow-hidden rounded-xl border border-neutral-200/80 dark:border-neutral-800 bg-white dark:bg-neutral-950 shadow-md">
             
             <!-- Left Sidebar: Senders List -->
             <div class="w-80 flex flex-col border-r border-neutral-200/80 dark:border-neutral-800 shrink-0 bg-neutral-50/70 dark:bg-neutral-900/20">
