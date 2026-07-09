@@ -14,6 +14,7 @@ class WaNotification extends Model
         'name',
         'message',
         'is_read',
+        'is_outgoing',
     ];
 
     /**
@@ -25,6 +26,7 @@ class WaNotification extends Model
     {
         return [
             'is_read' => 'boolean',
+            'is_outgoing' => 'boolean',
         ];
     }
 }

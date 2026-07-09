@@ -58,6 +58,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // WhatsApp Notifications API
     Route::get('api/wa-notifications/unread', [WaNotificationController::class, 'unread'])->name('api.wa_notifications.unread');
     Route::post('api/wa-notifications/mark-read', [WaNotificationController::class, 'markRead'])->name('api.wa_notifications.mark_read');
+    
+    // WhatsApp Today Messages & Reply API
+    Route::get('pesan-wa', [WaNotificationController::class, 'index'])->name('wa.index');
+    Route::get('api/wa-notifications/today', [WaNotificationController::class, 'todayConversations'])->name('api.wa_notifications.today');
+    Route::post('api/wa-notifications/reply', [WaNotificationController::class, 'sendReply'])->name('api.wa_notifications.reply');
 });
 
 require __DIR__.'/settings.php';
