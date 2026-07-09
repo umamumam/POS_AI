@@ -184,16 +184,25 @@ onUnmounted(() => {
 <template>
     <Head title="WhatsApp Pesan Hari Ini" />
     
-    <div class="flex h-[calc(100vh-12.5rem)] min-h-[350px] overflow-hidden rounded-xl border border-neutral-200/80 dark:border-neutral-800 bg-white dark:bg-neutral-950 shadow-md">
+    <div class="flex h-full flex-1 flex-col gap-6 p-4 font-sans text-[#171717]" style="font-family: 'Poppins', sans-serif;">
+        <!-- Header Info (Matches other page layouts) -->
+        <div class="flex items-center gap-2.5">
+            <div class="rounded-lg bg-orange-500/10 p-2 text-orange-600">
+                <MessageCircle class="h-5 w-5" />
+            </div>
+            <div>
+                <h2 class="text-xl font-extrabold tracking-tight text-[#171717] dark:text-white">Pesan WA Hari Ini</h2>
+                <p class="text-xs text-[#525252] dark:text-neutral-400">Pantau dan balas pesan pelanggan yang terhubung melalui gateway Fonnte secara langsung.</p>
+            </div>
+        </div>
+
+        <!-- Chat Container Box -->
+        <div class="flex h-[calc(100vh-14.5rem)] min-h-[420px] overflow-hidden rounded-xl border border-neutral-200/80 dark:border-neutral-800 bg-white dark:bg-neutral-950 shadow-md">
             
             <!-- Left Sidebar: Senders List -->
             <div class="w-80 flex flex-col border-r border-neutral-200/80 dark:border-neutral-800 shrink-0 bg-neutral-50/70 dark:bg-neutral-900/20">
                 <!-- Sidebar Header & Search -->
                 <div class="p-4 border-b border-neutral-200/80 dark:border-neutral-800 space-y-3">
-                    <h2 class="text-sm font-semibold text-foreground flex items-center gap-2">
-                        <MessageCircle class="h-4.5 w-4.5 text-orange-500 fill-orange-500/20" />
-                        Pesan WA Hari Ini
-                    </h2>
                     <div class="relative">
                         <Search class="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
                         <Input
@@ -337,4 +346,5 @@ onUnmounted(() => {
             </div>
             
         </div>
+    </div>
 </template>
