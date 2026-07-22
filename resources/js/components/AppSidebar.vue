@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Link } from '@inertiajs/vue3';
-import { BookOpen, FolderGit2, LayoutGrid, Mic, Package, MessageCircle } from '@lucide/vue';
+import { BookOpen, FolderGit2, LayoutGrid, Mic, Package, MessageCircle, ClipboardList } from '@lucide/vue';
 import AppLogo from '@/components/AppLogo.vue';
 import NavFooter from '@/components/NavFooter.vue';
 import NavMain from '@/components/NavMain.vue';
@@ -32,6 +32,11 @@ const mainNavItems: NavItem[] = [
         title: 'Produk',
         href: '/products-crud',
         icon: Package,
+    },
+    {
+        title: 'Order Kiriman',
+        href: '/orders',
+        icon: ClipboardList,
     },
     {
         title: 'Pesan WA',

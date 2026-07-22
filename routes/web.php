@@ -3,6 +3,7 @@
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\POSController;
 use App\Http\Controllers\ProdukController;
+use App\Http\Controllers\OrderController;
 use App\Http\Controllers\WebhookController;
 use App\Http\Controllers\WaNotificationController;
 
@@ -63,6 +64,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('pesan-wa', [WaNotificationController::class, 'index'])->name('wa.index');
     Route::get('api/wa-notifications/today', [WaNotificationController::class, 'todayConversations'])->name('api.wa_notifications.today');
     Route::post('api/wa-notifications/reply', [WaNotificationController::class, 'sendReply'])->name('api.wa_notifications.reply');
+
+    // Order Kiriman Routes
+    Route::get('orders', [OrderController::class, 'index'])->name('orders.index');
+    Route::post('orders', [OrderController::class, 'store'])->name('orders.store');
+    Route::delete('orders/{order}', [OrderController::class, 'destroy'])->name('orders.destroy');
 });
 
 require __DIR__.'/settings.php';
