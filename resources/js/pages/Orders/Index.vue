@@ -125,9 +125,16 @@ const filteredProducts = computed(() => {
     return props.products.filter(p => p.nama.toLowerCase().includes(q) || p.kode.toLowerCase().includes(q));
 });
 
+// Helper for Title Case capitalization (Capital in early word, e.g. "sosis okey 1 kg" -> "Sosis Okey 1 Kg")
+const toTitleCase = (str: string): string => {
+    if (!str) return '';
+    return str.toLowerCase().replace(/(?:^|\s|-|\/)\S/g, (match) => match.toUpperCase());
+};
+
 // Auto detect unit & column based on product name or unit select
 const handleSatuanChange = () => {
-    if (inputSatuan.value.toLowerCase().includes('karton')) {
+    const s = inputSatuan.value.toLowerCase();
+    if (s.includes('karton') || s.includes('sak') || s.includes('kg')) {
         inputKolom.value = 'kiri';
     } else {
         inputKolom.value = 'kanan';
@@ -135,9 +142,17 @@ const handleSatuanChange = () => {
 };
 
 const handleProductNameInput = () => {
-    const name = inputNamaItem.value.toLowerCase();
+    const raw = inputNamaItem.value;
+    inputNamaItem.value = toTitleCase(raw);
+    const name = raw.toLowerCase();
     if (name.includes('karton')) {
         inputSatuan.value = 'Karton';
+        inputKolom.value = 'kiri';
+    } else if (name.includes('sak')) {
+        inputSatuan.value = 'Sak';
+        inputKolom.value = 'kiri';
+    } else if (name.includes('kg')) {
+        inputSatuan.value = 'Kg';
         inputKolom.value = 'kiri';
     } else if (name.includes('ball')) {
         inputSatuan.value = 'Ball';
@@ -147,16 +162,16 @@ const handleProductNameInput = () => {
 
 const selectProductFromDropdown = (product: Product) => {
     selectedProductId.value = product.id;
-    inputNamaItem.value = product.nama;
-    productSearchQuery.value = product.nama;
+    inputNamaItem.value = toTitleCase(product.nama);
+    productSearchQuery.value = toTitleCase(product.nama);
     showProductDropdown.value = false;
     handleProductNameInput();
 };
 
 // Add Single Item
 const addItem = () => {
-    const nameStr = (inputNamaItem.value || productSearchQuery.value).trim();
-    if (!nameStr) {
+    const rawName = (inputNamaItem.value || productSearchQuery.value).trim();
+    if (!rawName) {
         Swal.fire({
             icon: 'warning',
             title: 'Nama barang kosong',
@@ -166,6 +181,8 @@ const addItem = () => {
         });
         return;
     }
+
+    const nameStr = toTitleCase(rawName);
 
     items.value.push({
         id: Date.now() + Math.random(),
@@ -220,13 +237,21 @@ const processBulkText = () => {
             satuan = 'Karton';
             kolom = 'kiri';
             nama = nama.replace(/\bkarton\b/gi, '').trim();
+        } else if (/\bsak\b/i.test(nama)) {
+            satuan = 'Sak';
+            kolom = 'kiri';
+            nama = nama.replace(/\bsak\b/gi, '').trim();
+        } else if (/\bkg\b/i.test(nama)) {
+            satuan = 'Kg';
+            kolom = 'kiri';
+            nama = nama.replace(/\bkg\b/gi, '').trim();
         } else if (/\bball\b/i.test(nama)) {
             satuan = 'Ball';
             kolom = 'kanan';
             nama = nama.replace(/\bball\b/gi, '').trim();
         }
 
-        nama = nama.replace(/\s+/g, ' ');
+        nama = toTitleCase(nama.replace(/\s+/g, ' '));
 
         items.value.push({
             id: Date.now() + Math.random(),
@@ -724,6 +749,8 @@ onMounted(() => {
                                     class="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 font-semibold"
                                 >
                                     <option value="Karton">Karton (Kiri)</option>
+                                    <option value="Sak">Sak (Kiri)</option>
+                                    <option value="Kg">Kg (Kiri)</option>
                                     <option value="Ball">Ball (Kanan)</option>
                                     <option value="Satuan">Satuan / Pcs (Kanan)</option>
                                     <option value="Bungkus">Bungkus (Kanan)</option>

@@ -83,11 +83,13 @@ class OrderController extends Controller
         foreach ($validated['items'] as $itemData) {
             $produkId = $itemData['produk_id'] ?? null;
             $saveToMaster = !empty($itemData['save_to_master']);
+            $formattedName = ucwords(mb_strtolower(trim($itemData['nama_item'])));
+            $formattedSatuan = ucwords(mb_strtolower(trim($itemData['satuan'])));
 
             // If product does not exist in master yet and user wants to save it
             if (!$produkId && $saveToMaster) {
                 // Check if product with same name already exists to avoid duplicates
-                $existingProduct = Produk::where('nama', $itemData['nama_item'])->first();
+                $existingProduct = Produk::where('nama', $formattedName)->first();
 
                 if ($existingProduct) {
                     $produkId = $existingProduct->id;
@@ -96,7 +98,7 @@ class OrderController extends Controller
                     $kode = 'PRD-' . strtoupper(Str::random(6));
 
                     $newProduct = Produk::create([
-                        'nama' => trim($itemData['nama_item']),
+                        'nama' => $formattedName,
                         'kode' => $kode,
                         'harga_beli' => 0,
                         'harga_jual' => 0,
@@ -111,9 +113,9 @@ class OrderController extends Controller
             OrderItem::create([
                 'order_id' => $order->id,
                 'produk_id' => $produkId,
-                'nama_item' => trim($itemData['nama_item']),
+                'nama_item' => $formattedName,
                 'jumlah' => $itemData['jumlah'],
-                'satuan' => trim($itemData['satuan']),
+                'satuan' => $formattedSatuan,
                 'kolom' => $itemData['kolom'],
                 'keterangan' => $itemData['keterangan'] ?? null,
             ]);

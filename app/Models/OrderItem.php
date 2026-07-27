@@ -20,6 +20,22 @@ class OrderItem extends Model
     ];
 
     /**
+     * Mutator to format item name into Title Case (e.g., "sosis okey 1 kg" -> "Sosis Okey 1 Kg")
+     */
+    public function setNamaItemAttribute($value)
+    {
+        $this->attributes['nama_item'] = ucwords(mb_strtolower(trim($value)));
+    }
+
+    /**
+     * Mutator to format unit into Title Case (e.g., "sak" -> "Sak", "kg" -> "Kg")
+     */
+    public function setSatuanAttribute($value)
+    {
+        $this->attributes['satuan'] = ucwords(mb_strtolower(trim($value)));
+    }
+
+    /**
      * Get the order that owns the item.
      */
     public function order(): BelongsTo

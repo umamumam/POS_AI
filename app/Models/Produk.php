@@ -21,6 +21,15 @@ class Produk extends Model
     ];
 
     /**
+     * Mutator to automatically format product name to Title Case.
+     * Example: "sosis okey 1 kg" -> "Sosis Okey 1 Kg"
+     */
+    public function setNamaAttribute($value)
+    {
+        $this->attributes['nama'] = ucwords(mb_strtolower(trim($value)));
+    }
+
+    /**
      * Get the category that owns the product.
      */
     public function kategori(): BelongsTo
